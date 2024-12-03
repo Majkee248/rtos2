@@ -124,16 +124,23 @@ void task_led_pta_blink(void *t_arg)
 // Task to control snake effect from left
 void task_snake_left(void *t_arg)
 {
-    while (1)
-    {
-        for (int i = 0; i < LED_PTC_NUM; i++)
+    int type = 0;
+
+    if(type = 7){
+
+        while (1)
         {
-            GPIO_PinWrite(g_led_ptc[i].m_led_gpio, g_led_ptc[i].m_led_pin, 1);
-            vTaskDelay(100);
-            GPIO_PinWrite(g_led_ptc[i].m_led_gpio, g_led_ptc[i].m_led_pin, 0);
+            for (int i = 0; i < LED_PTC_NUM; i++)
+            {
+                GPIO_PinWrite(g_led_ptc[i].m_led_gpio, g_led_ptc[i].m_led_pin, 1);
+                GPIO_PinWrite(g_led_ptc[i+1].m_led_gpio, g_led_ptc[i+1].m_led_pin, 1);
+                vTaskDelay(100);
+                GPIO_PinWrite(g_led_ptc[i].m_led_gpio, g_led_ptc[i].m_led_pin, 0);
+            }
+            vTaskSuspend(NULL);
         }
-        vTaskSuspend(NULL);
     }
+
 }
 
 // Task to control snake effect from right
@@ -148,6 +155,56 @@ void task_snake_right(void *t_arg)
             GPIO_PinWrite(g_led_ptc[i].m_led_gpio, g_led_ptc[i].m_led_pin, 0);
         }
         vTaskSuspend(NULL);
+    }
+}
+
+void task_snake_two_head(void *t_arg)
+{
+    uint8_t direction = 1; // 1 for right, -1 for left
+    uint8_t head_position = 0;
+
+    while (1)
+    {
+        if (direction == 1) // Moving right
+        {
+            for (head_position = 0; head_position < LED_PTC_NUM - 1; head_position++)
+            {
+                // Turn on two LEDs for the head
+                GPIO_PinWrite(g_led_ptc[head_position].m_led_gpio, g_led_ptc[head_position].m_led_pin, 1);
+                GPIO_PinWrite(g_led_ptc[head_position + 1].m_led_gpio, g_led_ptc[head_position + 1].m_led_pin, 1);
+
+                vTaskDelay(100);
+
+                // Turn off the tail LED
+                GPIO_PinWrite(g_led_ptc[head_position].m_led_gpio, g_led_ptc[head_position].m_led_pin, 0);
+            }
+
+            // Leave one LED lit at the end
+            GPIO_PinWrite(g_led_ptc[head_position].m_led_gpio, g_led_ptc[head_position].m_led_pin, 1);
+
+            // Suspend task and wait for direction change
+            vTaskSuspend(NULL);
+        }
+        else if (direction == -1) // Moving left
+        {
+            for (head_position = LED_PTC_NUM - 1; head_position > 0; head_position--)
+            {
+                // Turn on two LEDs for the head
+                GPIO_PinWrite(g_led_ptc[head_position].m_led_gpio, g_led_ptc[head_position].m_led_pin, 1);
+                GPIO_PinWrite(g_led_ptc[head_position - 1].m_led_gpio, g_led_ptc[head_position - 1].m_led_pin, 1);
+
+                vTaskDelay(100);
+
+                // Turn off the tail LED
+                GPIO_PinWrite(g_led_ptc[head_position].m_led_gpio, g_led_ptc[head_position].m_led_pin, 0);
+            }
+
+            // Leave one LED lit at the start
+            GPIO_PinWrite(g_led_ptc[head_position].m_led_gpio, g_led_ptc[head_position].m_led_pin, 1);
+
+            // Suspend task and wait for direction change
+            vTaskSuspend(NULL);
+        }
     }
 }
 
