@@ -37,6 +37,8 @@
 #define TASK_NAME_LED_SNAKE_R	"led_snake_r"
 #define TASK_NAME_LED_BRIGHTNESS "led_brightness"
 
+#define TASK_NAME_TWO_HEAD "snake_two_head"
+
 #define LED_PTA_NUM 	2
 #define LED_PTC_NUM		8
 #define LED_PTB_NUM		9
@@ -215,6 +217,8 @@ void task_switches(void *t_arg)
     TaskHandle_t l_handle_led_snake_l = xTaskGetHandle(TASK_NAME_LED_SNAKE_L);
     TaskHandle_t l_handle_led_snake_r = xTaskGetHandle(TASK_NAME_LED_SNAKE_R);
     TaskHandle_t l_handle_led_brightness = xTaskGetHandle(TASK_NAME_LED_BRIGHTNESS);
+    TaskHandle_t l_handle_snake_two_head = xTaskGetHandle(TASK_NAME_TWO_HEAD);
+
 
     while (1)
     {
@@ -237,11 +241,25 @@ void task_switches(void *t_arg)
         }
 
         // Resume other tasks based on switches
-        if (GPIO_PinRead(SW_PTC10_GPIO, SW_PTC10_PIN) == 0 && l_handle_led_pta)
-            vTaskResume(l_handle_led_pta);
+        // Move snake to the left
+        if (GPIO_PinRead(SW_PTC10_GPIO, SW_PTC10_PIN) == 0)
+        {
+            if (l_handle_snake_two_head)
+            {
+                vTaskResume(l_handle_snake_two_head);
+                vTaskDelay(300);
+            }
+        }
 
-        if (GPIO_PinRead(SW_PTC11_GPIO, SW_PTC11_PIN) == 0 && l_handle_led_snake_l)
-            vTaskResume(l_handle_led_snake_l);
+        // Move snake to the right
+        if (GPIO_PinRead(SW_PTC11_GPIO, SW_PTC11_PIN) == 0)
+        {
+            if (l_handle_snake_two_head)
+            {
+                vTaskResume(l_handle_snake_two_head);
+                vTaskDelay(300);
+            }
+        }
 
         if (GPIO_PinRead(SW_PTC12_GPIO, SW_PTC12_PIN) == 0 && l_handle_led_snake_r)
             vTaskResume(l_handle_led_snake_r);
@@ -276,6 +294,9 @@ int main(void)
 
     if (xTaskCreate(task_switches, TASK_NAME_SWITCHES, configMINIMAL_STACK_SIZE + 100, NULL, NORMAL_TASK_PRIORITY, NULL) != pdPASS)
         PRINTF("Unable to create task '%s'!\r\n", TASK_NAME_SWITCHES);
+
+    if (xTaskCreate(task_snake_two_head, TASK_NAME_TWO_HEAD, configMINIMAL_STACK_SIZE + 100, NULL, NORMAL_TASK_PRIORITY, NULL) != pdPASS)
+        PRINTF("Unable to create task 'snake_two_head'!\r\n");
 
     vTaskStartScheduler();
 
