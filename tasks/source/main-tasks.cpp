@@ -519,9 +519,9 @@ void task_rgb_brightness_control(void *t_arg)
         // Control Second RGB LED (RGB1: PTB10, PTB11, PTB18)
         if(counter < brightness2)
         {
-            GPIO_PinWrite(LED_PTB10_GPIO, LED_PTB10_PIN, 1); // Red
-            GPIO_PinWrite(LED_PTB11_GPIO, LED_PTB11_PIN, 1); // Green
-            GPIO_PinWrite(LED_PTB18_GPIO, LED_PTB18_PIN, 1); // Blue
+            GPIO_PinWrite(LED_PTB19_GPIO, LED_PTB19_PIN, 1); // Red
+            GPIO_PinWrite(LED_PTB20_GPIO, LED_PTB20_PIN, 1); // Green
+            GPIO_PinWrite(LED_PTB23_GPIO, LED_PTB23_PIN, 1); // Blue
         }
         else
         {
