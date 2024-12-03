@@ -10,41 +10,6 @@
 // File:         Task control demo program.
 //
 // **************************************************************************
-//
-// All mapped LEDs and switches and their PINs and GPIOs:
-// See schema in APPS syllabus.
-//
-// Switches:
-// Name		PIN				GPIO
-// PTC9		SW_PTC9_PIN		SW_PTC9_GPIO
-// PTC10	SW_PTC10_PIN	SW_PTC10_GPIO
-// PTC11	SW_PTC11_PIN	SW_PTC11_GPIO
-// PTC12	SW_PTC12_PIN	SW_PTC12_GPIO
-//
-// LEDs:
-// Name		PIN				GPIO
-// PTA1		LED_PTA1_PIN   LED_PTA1_GPIO
-// PTA2		LED_PTA2_PIN   LED_PTA2_GPIO
-//
-// PTC0		LED_PTC0_PIN   LED_PTC0_GPIO
-// PTC1		LED_PTC1_PIN   LED_PTC1_GPIO
-// PTC2		LED_PTC2_PIN   LED_PTC2_GPIO
-// PTC3		LED_PTC3_PIN   LED_PTC3_GPIO
-// PTC4		LED_PTC4_PIN   LED_PTC4_GPIO
-// PTC5		LED_PTC5_PIN   LED_PTC5_GPIO
-// PTC7		LED_PTC7_PIN   LED_PTC7_GPIO
-// PTC8		LED_PTC8_PIN   LED_PTC8_GPIO
-//
-// PTB2		LED_PTB2_PIN   LED_PTB2_GPIO
-// PTB3		LED_PTB3_PIN   LED_PTB3_GPIO
-// PTB9		LED_PTB9_PIN   LED_PTB9_GPIO
-// PTB10	LED_PTB10_PIN  LED_PTB10_GPIO
-// PTB11	LED_PTB11_PIN  LED_PTB11_GPIO
-// PTB18	LED_PTB18_PIN  LED_PTB18_GPIO
-// PTB19	LED_PTB19_PIN  LED_PTB19_GPIO
-// PTB20	LED_PTB20_PIN  LED_PTB20_GPIO
-// PTB23	LED_PTB23_PIN  LED_PTB23_GPIO
-
 
 // FreeRTOS kernel includes.
 #include "FreeRTOS.h"
@@ -70,178 +35,195 @@
 #define TASK_NAME_LED_PTA		"led_pta"
 #define TASK_NAME_LED_SNAKE_L	"led_snake_l"
 #define TASK_NAME_LED_SNAKE_R	"led_snake_r"
+#define TASK_NAME_LED_BRIGHTNESS "led_brightness"
 
 #define LED_PTA_NUM 	2
 #define LED_PTC_NUM		8
 #define LED_PTB_NUM		9
 
+#define MAX_BRIGHTNESS 100
+#define BRIGHTNESS_STEP 20
+
 // pair of GPIO port and LED pin.
 struct LED_Data
 {
-	uint32_t m_led_pin;
-	GPIO_Type *m_led_gpio;
+    uint32_t m_led_pin;
+    GPIO_Type *m_led_gpio;
 };
 
 // all PTAx LEDs in array
-LED_Data g_led_pta[ LED_PTA_NUM ] =
-{
-		{ LED_PTA1_PIN, LED_PTA1_GPIO },
-		{ LED_PTA2_PIN, LED_PTA2_GPIO },
-};
+LED_Data g_led_pta[LED_PTA_NUM] =
+        {
+                {LED_PTA1_PIN, LED_PTA1_GPIO},
+                {LED_PTA2_PIN, LED_PTA2_GPIO},
+        };
 
 // all PTCx LEDs in array
-LED_Data g_led_ptc[ LED_PTC_NUM ] =
-{
-		{ LED_PTC0_PIN, LED_PTC0_GPIO },
-		{ LED_PTC1_PIN, LED_PTC1_GPIO },
-		{ LED_PTC2_PIN, LED_PTC2_GPIO },
-		{ LED_PTC3_PIN, LED_PTC3_GPIO },
-		{ LED_PTC4_PIN, LED_PTC4_GPIO },
-		{ LED_PTC5_PIN, LED_PTC5_GPIO },
-		{ LED_PTC7_PIN, LED_PTC7_GPIO },
-		{ LED_PTC8_PIN, LED_PTC8_GPIO },
-};
+LED_Data g_led_ptc[LED_PTC_NUM] =
+        {
+                {LED_PTC0_PIN, LED_PTC0_GPIO},
+                {LED_PTC1_PIN, LED_PTC1_GPIO},
+                {LED_PTC2_PIN, LED_PTC2_GPIO},
+                {LED_PTC3_PIN, LED_PTC3_GPIO},
+                {LED_PTC4_PIN, LED_PTC4_GPIO},
+                {LED_PTC5_PIN, LED_PTC5_GPIO},
+                {LED_PTC7_PIN, LED_PTC7_GPIO},
+                {LED_PTC8_PIN, LED_PTC8_GPIO},
+        };
 
-// This task blink alternatively both PTAx LEDs
-void task_led_pta_blink( void *t_arg )
-{
-	uint32_t l_inx = 0;
+LED_Data g_led_rgb[LED_PTB_NUM] =
+        {
+                {LED_PTB2_PIN, LED_PTB2_GPIO},
+                {LED_PTB3_PIN, LED_PTB3_GPIO},
+                {LED_PTB9_PIN, LED_PTB9_GPIO},
+                {LED_PTB10_PIN, LED_PTB10_GPIO},
+                {LED_PTB11_PIN, LED_PTB11_GPIO},
+                {LED_PTB18_PIN, LED_PTB18_GPIO},
+                {LED_PTB19_PIN, LED_PTB19_GPIO},
+                {LED_PTB20_PIN, LED_PTB20_GPIO},
+                {LED_PTB23_PIN, LED_PTB23_GPIO},
+        };
 
-    while ( 1 )
+// Brightness levels for the three RGB lights
+uint8_t brightness_levels[3] = {MAX_BRIGHTNESS, 0, 0};
+
+// Function to update LED brightness
+void update_led_brightness()
+{
+    for (int i = 0; i < 3; i++)
     {
-    	// switch LED on
-        GPIO_PinWrite( g_led_pta[ l_inx ].m_led_gpio, g_led_pta[ l_inx ].m_led_pin, 1 );
-        vTaskDelay( 200 );
-        // switch LED off
-        GPIO_PinWrite( g_led_pta[ l_inx ].m_led_gpio, g_led_pta[ l_inx ].m_led_pin, 0 );
-        // next LED
-        l_inx++;
-        l_inx %= LED_PTA_NUM;
+        GPIO_PinWrite(g_led_rgb[i * 3].m_led_gpio, g_led_rgb[i * 3].m_led_pin, brightness_levels[i] > 0);
+        GPIO_PinWrite(g_led_rgb[i * 3 + 1].m_led_gpio, g_led_rgb[i * 3 + 1].m_led_pin, brightness_levels[i] > 50);
+        GPIO_PinWrite(g_led_rgb[i * 3 + 2].m_led_gpio, g_led_rgb[i * 3 + 2].m_led_pin, brightness_levels[i] == MAX_BRIGHTNESS);
     }
 }
 
-// This task is snake animation from left side on red LEDs
-void task_snake_left( void *t_arg )
+// Task to control LED brightness
+void task_led_brightness(void *t_arg)
 {
-	while ( 1 )
-	{
-		vTaskSuspend( 0 );
-
-		for ( int inx = 0; inx < LED_PTC_NUM; inx++ )
-		{
-	    	// switch LED on
-	        GPIO_PinWrite( g_led_ptc[ inx ].m_led_gpio, g_led_ptc[ inx ].m_led_pin, 1 );
-	        vTaskDelay( 200 );
-	        // switch LED off
-	        GPIO_PinWrite( g_led_ptc[ inx ].m_led_gpio, g_led_ptc[ inx ].m_led_pin, 0 );
-		}
-	}
+    while (1)
+    {
+        update_led_brightness();
+        vTaskSuspend(NULL); // Suspend itself until resumed by another task
+    }
 }
 
-// This task is snake animation from right side on red LEDs
-void task_snake_right( void *t_arg )
+// Task to blink PTA LEDs
+void task_led_pta_blink(void *t_arg)
 {
-	while ( 1 )
-	{
-		vTaskSuspend( 0 );
-
-		for ( int inx = LED_PTC_NUM - 1; inx >= 0; inx-- )
-		{
-	    	// switch LED on
-	        GPIO_PinWrite( g_led_ptc[ inx ].m_led_gpio, g_led_ptc[ inx ].m_led_pin, 1 );
-	        vTaskDelay( 200 );
-	        // switch LED off
-	        GPIO_PinWrite( g_led_ptc[ inx ].m_led_gpio, g_led_ptc[ inx ].m_led_pin, 0 );
-		}
-	}
+    while (1)
+    {
+        for (int i = 0; i < LED_PTA_NUM; i++)
+        {
+            GPIO_PinToggle(g_led_pta[i].m_led_gpio, g_led_pta[i].m_led_pin);
+            vTaskDelay(500);
+        }
+    }
 }
 
-// This task monitors switches and control others led_* tasks
-void task_switches( void *t_arg )
+// Task to control snake effect from left
+void task_snake_left(void *t_arg)
 {
-	// Get task handles for task names
-	TaskHandle_t l_handle_led_pta = xTaskGetHandle( TASK_NAME_LED_PTA );
-	TaskHandle_t l_handle_led_snake_l = xTaskGetHandle( TASK_NAME_LED_SNAKE_L );
-	TaskHandle_t l_handle_led_snake_r = xTaskGetHandle( TASK_NAME_LED_SNAKE_R );
+    while (1)
+    {
+        for (int i = 0; i < LED_PTC_NUM; i++)
+        {
+            GPIO_PinWrite(g_led_ptc[i].m_led_gpio, g_led_ptc[i].m_led_pin, 1);
+            vTaskDelay(100);
+            GPIO_PinWrite(g_led_ptc[i].m_led_gpio, g_led_ptc[i].m_led_pin, 0);
+        }
+        vTaskSuspend(NULL);
+    }
+}
 
-	while ( 1 )
-	{
-		// test PTC9 switch
-		if ( GPIO_PinRead( SW_PTC9_GPIO, SW_PTC9_PIN ) == 0 )
-		{
-			if ( l_handle_led_pta )
-				vTaskSuspend( l_handle_led_pta );
-		}
+// Task to control snake effect from right
+void task_snake_right(void *t_arg)
+{
+    while (1)
+    {
+        for (int i = LED_PTC_NUM - 1; i >= 0; i--)
+        {
+            GPIO_PinWrite(g_led_ptc[i].m_led_gpio, g_led_ptc[i].m_led_pin, 1);
+            vTaskDelay(100);
+            GPIO_PinWrite(g_led_ptc[i].m_led_gpio, g_led_ptc[i].m_led_pin, 0);
+        }
+        vTaskSuspend(NULL);
+    }
+}
 
-		// test PTC10 switch
-		if ( GPIO_PinRead( SW_PTC10_GPIO, SW_PTC10_PIN ) == 0 )
-		{
-			if ( l_handle_led_pta )
-				vTaskResume( l_handle_led_pta );
-		}
+// This task monitors switches and controls others led_* tasks
+void task_switches(void *t_arg)
+{
+    TaskHandle_t l_handle_led_pta = xTaskGetHandle(TASK_NAME_LED_PTA);
+    TaskHandle_t l_handle_led_snake_l = xTaskGetHandle(TASK_NAME_LED_SNAKE_L);
+    TaskHandle_t l_handle_led_snake_r = xTaskGetHandle(TASK_NAME_LED_SNAKE_R);
+    TaskHandle_t l_handle_led_brightness = xTaskGetHandle(TASK_NAME_LED_BRIGHTNESS);
 
-		// test PTC11 switch
-		if ( GPIO_PinRead( SW_PTC11_GPIO, SW_PTC11_PIN ) == 0 )
-		{
-			if ( l_handle_led_snake_l )
-				vTaskResume( l_handle_led_snake_l );
-		}
+    while (1)
+    {
+        // Adjust brightness on PTC9
+        if (GPIO_PinRead(SW_PTC9_GPIO, SW_PTC9_PIN) == 0)
+        {
+            for (int i = 0; i < 3; i++)
+            {
+                if (brightness_levels[i] > 0)
+                {
+                    brightness_levels[i] -= BRIGHTNESS_STEP;
+                    brightness_levels[(i + 1) % 3] += BRIGHTNESS_STEP;
+                    break;
+                }
+            }
+            if (l_handle_led_brightness)
+                vTaskResume(l_handle_led_brightness);
 
-		// test PTC12 switch
-		if ( GPIO_PinRead( SW_PTC12_GPIO, SW_PTC12_PIN ) == 0 )
-		{
-			if ( l_handle_led_snake_r )
-				vTaskResume( l_handle_led_snake_r );
-		}
+            vTaskDelay(300);
+        }
 
-		vTaskDelay( 1 );
-	}
+        // Resume other tasks based on switches
+        if (GPIO_PinRead(SW_PTC10_GPIO, SW_PTC10_PIN) == 0 && l_handle_led_pta)
+            vTaskResume(l_handle_led_pta);
+
+        if (GPIO_PinRead(SW_PTC11_GPIO, SW_PTC11_PIN) == 0 && l_handle_led_snake_l)
+            vTaskResume(l_handle_led_snake_l);
+
+        if (GPIO_PinRead(SW_PTC12_GPIO, SW_PTC12_PIN) == 0 && l_handle_led_snake_r)
+            vTaskResume(l_handle_led_snake_r);
+
+        vTaskDelay(1);
+    }
 }
 
 // Start application
-int main(void) {
-
-    // Init board hardware.
+int main(void)
+{
     BOARD_InitBootPins();
     BOARD_InitBootClocks();
     BOARD_InitBootPeripherals();
     BOARD_InitDebugConsole();
 
-    PRINTF( "FreeRTOS task demo program.\r\n" );
-    PRINTF( "Switches PTC9 and PTC10 will stop and run PTAx LEDs blinking.\r\n" );
-    PRINTF( "Switches PTC11 and PTC12 will start snake on red LEDS from the left and right side.\r\n");
+    PRINTF("FreeRTOS task demo program.\r\n");
 
-    // Create tasks
-    if ( xTaskCreate(
-    		task_led_pta_blink,
-    		TASK_NAME_LED_PTA,
-			configMINIMAL_STACK_SIZE + 100,
-			NULL,
-			NORMAL_TASK_PRIORITY,
-			NULL ) != pdPASS )
-    {
-        PRINTF( "Unable to create task '%s'!\r\n", TASK_NAME_LED_PTA );
-    }
+    update_led_brightness();
 
-    if ( xTaskCreate( task_snake_left, TASK_NAME_LED_SNAKE_L, configMINIMAL_STACK_SIZE + 100, NULL, NORMAL_TASK_PRIORITY, NULL ) != pdPASS )
-    {
-        PRINTF( "Unable to create task '%s'!\r\n", TASK_NAME_LED_SNAKE_L );
-    }
+    if (xTaskCreate(task_led_pta_blink, TASK_NAME_LED_PTA, configMINIMAL_STACK_SIZE + 100, NULL, NORMAL_TASK_PRIORITY, NULL) != pdPASS)
+        PRINTF("Unable to create task '%s'!\r\n", TASK_NAME_LED_PTA);
 
-    if ( xTaskCreate( task_snake_right, TASK_NAME_LED_SNAKE_R, configMINIMAL_STACK_SIZE + 100, NULL, NORMAL_TASK_PRIORITY, NULL ) != pdPASS)
-    {
-        PRINTF( "Unable to create task '%s'!\r\n", TASK_NAME_LED_SNAKE_R );
-    }
+    if (xTaskCreate(task_snake_left, TASK_NAME_LED_SNAKE_L, configMINIMAL_STACK_SIZE + 100, NULL, NORMAL_TASK_PRIORITY, NULL) != pdPASS)
+        PRINTF("Unable to create task '%s'!\r\n", TASK_NAME_LED_SNAKE_L);
 
-    if ( xTaskCreate( task_switches, TASK_NAME_SWITCHES, configMINIMAL_STACK_SIZE + 100, NULL, NORMAL_TASK_PRIORITY, NULL) != pdPASS )
-    {
-        PRINTF( "Unable to create task '%s'!\r\n", TASK_NAME_SWITCHES );
-    }
+    if (xTaskCreate(task_snake_right, TASK_NAME_LED_SNAKE_R, configMINIMAL_STACK_SIZE + 100, NULL, NORMAL_TASK_PRIORITY, NULL) != pdPASS)
+        PRINTF("Unable to create task '%s'!\r\n", TASK_NAME_LED_SNAKE_R);
+
+    if (xTaskCreate(task_led_brightness, TASK_NAME_LED_BRIGHTNESS, configMINIMAL_STACK_SIZE + 100, NULL, NORMAL_TASK_PRIORITY, NULL) != pdPASS)
+        PRINTF("Unable to create task '%s'!\r\n", TASK_NAME_LED_BRIGHTNESS);
+
+    if (xTaskCreate(task_switches, TASK_NAME_SWITCHES, configMINIMAL_STACK_SIZE + 100, NULL, NORMAL_TASK_PRIORITY, NULL) != pdPASS)
+        PRINTF("Unable to create task '%s'!\r\n", TASK_NAME_SWITCHES);
 
     vTaskStartScheduler();
 
-    while ( 1 );
+    while (1)
+        ;
 
-    return 0 ;
+    return 0;
 }
-
