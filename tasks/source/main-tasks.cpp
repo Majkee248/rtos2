@@ -103,7 +103,7 @@ LED_Data g_led_ptc[ LED_PTC_NUM ] =
 };
 
 // This task blink alternatively both PTAx LEDs
-void xtask_led_pta_blink( void *t_arg )
+void task_led_pta_blink( void *t_arg )
 {
 	uint32_t l_inx = 0;
 
