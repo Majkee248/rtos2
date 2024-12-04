@@ -325,6 +325,7 @@ void task_switches(void *t_arg)
         vTaskDelay(pdMS_TO_TICKS(10));
     }
 }
+bool task_running = false;
 
 /*void task_switches(void *t_arg) {
     TaskHandle_t l_handle_led_snake_l = xTaskGetHandle(TASK_NAME_LED_SNAKE_L);
@@ -334,24 +335,32 @@ void task_switches(void *t_arg)
     TaskHandle_t l_handle_led_snake_back = xTaskGetHandle(TASK_NAME_LED_BOTH_SNAKES);
 
     while (1) {
-        if (GPIO_PinRead(SW_PTC9_GPIO, SW_PTC9_PIN) == 0) {
-            if (l_handle_led_snake_l) {
-                vTaskResume(l_handle_led_snake_l);
-                vTaskDelay(pdMS_TO_TICKS(300));
+        if (!task_running) {
+            if (GPIO_PinRead(SW_PTC9_GPIO, SW_PTC9_PIN) == 0) {
+                if (l_handle_led_snake_l) {
+                    task_running = true;
+                    vTaskResume(l_handle_led_snake_l);
+                    vTaskDelay(pdMS_TO_TICKS(300));
+                    task_running = false;
+                }
             }
-        }
 
-        if (GPIO_PinRead(SW_PTC10_GPIO, SW_PTC10_PIN) == 0) {
-            if (l_handle_led_snake_r) {
-                vTaskResume(l_handle_led_snake_r);
-                vTaskDelay(pdMS_TO_TICKS(300));
+            if (GPIO_PinRead(SW_PTC10_GPIO, SW_PTC10_PIN) == 0) {
+                if (l_handle_led_snake_r) {
+                    task_running = true;
+                    vTaskResume(l_handle_led_snake_r);
+                    vTaskDelay(pdMS_TO_TICKS(300));
+                    task_running = false;
+                }
             }
-        }
 
-        if (GPIO_PinRead(SW_PTC11_GPIO, SW_PTC11_PIN) == 0) {
-            if (l_handle_led_snake_back) {
-                vTaskResume(l_handle_led_snake_back);
-                vTaskDelay(pdMS_TO_TICKS(300));
+            if (GPIO_PinRead(SW_PTC11_GPIO, SW_PTC11_PIN) == 0) {
+                if (l_handle_led_snake_back) {
+                    task_running = true;
+                    vTaskResume(l_handle_led_snake_back);
+                    vTaskDelay(pdMS_TO_TICKS(300));
+                    task_running = false;
+                }
             }
         }
         vTaskDelay(pdMS_TO_TICKS(10));
@@ -482,7 +491,6 @@ void task_rgb_brightness_control(void *t_arg)
 }
 
 int main(void) {
-
 
     BOARD_InitBootPins();
     BOARD_InitBootClocks();
