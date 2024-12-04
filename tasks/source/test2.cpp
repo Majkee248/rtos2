@@ -179,8 +179,8 @@ void task_snake_back(void *t_arg) {
             vTaskDelay(pdMS_TO_TICKS(200));
         }
 
-        for (int inx = 0; inx < LED_PTC_NUM; inx++) {
-            GPIO_PinWrite(g_led_ptc[inx].m_led_gpio, g_led_ptc[inx].m_led_pin, 1);
+        for (int inx = LED_PTC_NUM - 1; inx >= 0; inx--) {
+            GPIO_PinWrite(g_led_ptc[inx].m_led_gpio, g_led_ptc[inx].m_led_pin, 0);
             vTaskDelay(pdMS_TO_TICKS(200));
         }
 
