@@ -243,40 +243,35 @@ void task_both_snakes(void *t_arg){
     }
 }
 
-void task_switches( void *t_arg )
+void task_switches(void *t_arg)
 {
-    TaskHandle_t l_handle_led_snake_l = xTaskGetHandle( TASK_NAME_LED_SNAKE_L );
-    TaskHandle_t l_handle_led_snake_r = xTaskGetHandle( TASK_NAME_LED_SNAKE_R );
-    TaskHandle_t l_handle_led_both_snakes = xTaskGetHandle( TASK_NAME_LED_BOTH_SNAKES );
-    TaskHandle_t l_handle_led_all_on = xTaskGetHandle( TASK_NAME_ALL_ON );
-    TaskHandle_t l_handle_led_all_off= xTaskGetHandle( TASK_NAME_ALL_OFF );
+    TaskHandle_t l_handle_led_snake_l = xTaskGetHandle(TASK_NAME_LED_SNAKE_L);
+    TaskHandle_t l_handle_led_snake_r = xTaskGetHandle(TASK_NAME_LED_SNAKE_R);
+    TaskHandle_t l_handle_led_both_snakes = xTaskGetHandle(TASK_NAME_LED_BOTH_SNAKES);
+    TaskHandle_t l_handle_led_all_on = xTaskGetHandle(TASK_NAME_ALL_ON);
+    TaskHandle_t l_handle_led_all_off = xTaskGetHandle(TASK_NAME_ALL_OFF);
 
     TickType_t last_ptc9_click_time = 0;
     uint8_t ptc9_click_count = 0;
     TickType_t last_ptc10_click_time = 0;
     uint8_t ptc10_click_count = 0;
 
-    while ( 1 )
+    while (1)
     {
-
         bool ptc9_current_state = (GPIO_PinRead(SW_PTC9_GPIO, SW_PTC9_PIN) == 0);
         if (ptc9_current_state && !ptc9_prev_state)
         {
             TickType_t current_time = xTaskGetTickCount();
             if (ptc9_click_count == 0)
             {
-
                 ptc9_click_count = 1;
                 last_ptc9_click_time = current_time;
             }
             else if (ptc9_click_count == 1)
             {
-
                 if ((current_time - last_ptc9_click_time) <= DOUBLE_CLICK_TIMEOUT_TICKS)
                 {
-
                     ptc9_click_count = 0;
-
                     if (l_handle_led_all_on)
                     {
                         vTaskResume(l_handle_led_all_on);
@@ -284,31 +279,12 @@ void task_switches( void *t_arg )
                 }
                 else
                 {
-
                     ptc9_click_count = 1;
                     last_ptc9_click_time = current_time;
                 }
             }
-
-
-            if (ptc9_click_count == 1)
-            {
-
-                vTaskDelay(pdMS_TO_TICKS(DEBOUNCE_DELAY_MS));
-
-                if (GPIO_PinRead(SW_PTC9_GPIO, SW_PTC9_PIN) == 0)
-                {
-
-                    if (brightness1 >= BRIGHTNESS_STEP && brightness2 <= (BRIGHTNESS_MAX - BRIGHTNESS_STEP))
-                    {
-                        brightness1 -= BRIGHTNESS_STEP;
-                        brightness2 += BRIGHTNESS_STEP;
-                    }
-                }
-            }
         }
         ptc9_prev_state = ptc9_current_state;
-
 
         bool ptc10_current_state = (GPIO_PinRead(SW_PTC10_GPIO, SW_PTC10_PIN) == 0);
         if (ptc10_current_state && !ptc10_prev_state)
@@ -316,18 +292,14 @@ void task_switches( void *t_arg )
             TickType_t current_time = xTaskGetTickCount();
             if (ptc10_click_count == 0)
             {
-
                 ptc10_click_count = 1;
                 last_ptc10_click_time = current_time;
             }
             else if (ptc10_click_count == 1)
             {
-
                 if ((current_time - last_ptc10_click_time) <= DOUBLE_CLICK_TIMEOUT_TICKS)
                 {
-
                     ptc10_click_count = 0;
-
                     if (l_handle_led_all_off)
                     {
                         vTaskResume(l_handle_led_all_off);
@@ -335,7 +307,6 @@ void task_switches( void *t_arg )
                 }
                 else
                 {
-
                     ptc10_click_count = 1;
                     last_ptc10_click_time = current_time;
                 }
@@ -343,43 +314,35 @@ void task_switches( void *t_arg )
         }
         ptc10_prev_state = ptc10_current_state;
 
+        bool ptc11_current_state = (GPIO_PinRead(SW_PTC11_GPIO, SW_PTC11_PIN) == 0);
+        if (ptc11_current_state && !ptc11_prev_state)
+        {
+            if (l_handle_led_snake_l)
+            {
+                vTaskResume(l_handle_led_snake_l);
+            }
+        }
+        ptc11_prev_state = ptc11_current_state;
 
         bool ptc12_current_state = (GPIO_PinRead(SW_PTC12_GPIO, SW_PTC12_PIN) == 0);
         if (ptc12_current_state && !ptc12_prev_state)
         {
-
-            if ( l_handle_led_snake_r )
-                vTaskResume( l_handle_led_snake_r );
-
-            vTaskDelay(pdMS_TO_TICKS(DEBOUNCE_DELAY_MS));
-
-            if (GPIO_PinRead(SW_PTC12_GPIO, SW_PTC12_PIN) == 0)
+            if (l_handle_led_snake_r)
             {
-
-                if (brightness2 >= BRIGHTNESS_STEP && brightness1 <= (BRIGHTNESS_MAX - BRIGHTNESS_STEP))
-                {
-                    brightness2 -= BRIGHTNESS_STEP;
-                    brightness1 += BRIGHTNESS_STEP;
-                }
+                vTaskResume(l_handle_led_snake_r);
             }
         }
         ptc12_prev_state = ptc12_current_state;
 
-
-        if ( GPIO_PinRead( SW_PTC11_GPIO, SW_PTC11_PIN ) == 0 )
-        {
-            if ( l_handle_led_snake_l )
-                vTaskResume( l_handle_led_snake_l );
-        }
-
-
-        if(GPIO_PinRead( SW_PTC11_GPIO, SW_PTC11_PIN ) == 0 && GPIO_PinRead( SW_PTC12_GPIO, SW_PTC12_PIN ) == 0)
+        if (ptc11_current_state && ptc12_current_state)
         {
             if (l_handle_led_both_snakes)
+            {
                 vTaskResume(l_handle_led_both_snakes);
+            }
         }
 
-        vTaskDelay( pdMS_TO_TICKS(10) );
+        vTaskDelay(pdMS_TO_TICKS(10));
     }
 }
 void task_rgb_brightness_control(void *t_arg)
