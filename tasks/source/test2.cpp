@@ -498,8 +498,8 @@ int main(void) {
     PRINTF( "Other buttons control LED animations as before.\r\n" );
 
 
-    brightness1 = 5;
-    brightness2 = 5;
+    brightness1 = 1;
+    brightness2 = 1;
 
     if ( xTaskCreate(
             task_led_pta_blink,
