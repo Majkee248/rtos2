@@ -257,15 +257,12 @@ void task_both_snakes(void *t_arg){
     }
 }
 
-void task_switches(void *t_arg) {
+/*void task_switches(void *t_arg) {
     TaskHandle_t l_handle_led_snake_l = xTaskGetHandle(TASK_NAME_LED_SNAKE_L);
     TaskHandle_t l_handle_led_snake_r = xTaskGetHandle(TASK_NAME_LED_SNAKE_R);
     TaskHandle_t l_handle_led_all_on = xTaskGetHandle(TASK_NAME_ALL_ON);
     TaskHandle_t l_handle_led_all_off = xTaskGetHandle(TASK_NAME_ALL_OFF);
-    TaskHandle_t l_handle_led_snake_back = xTaskGetHandle(TASK_NAME_LED_BOTH_SNAKES)
-    TickType_t last_ptc9_click_time = 0;
-
-
+    TaskHandle_t l_handle_led_snake_back = xTaskGetHandle(TASK_NAME_LED_BOTH_SNAKES);
 
     while (1) {
         if (GPIO_PinRead(SW_PTC9_GPIO, SW_PTC9_PIN) == 0) {
@@ -290,9 +287,9 @@ void task_switches(void *t_arg) {
         }
         vTaskDelay(pdMS_TO_TICKS(10));
     }
-}
+}*/
 
-/*void task_switches(void *t_arg)
+void task_switches(void *t_arg)
 {
     TaskHandle_t l_handle_led_snake_l = xTaskGetHandle(TASK_NAME_LED_SNAKE_L);
     TaskHandle_t l_handle_led_snake_r = xTaskGetHandle(TASK_NAME_LED_SNAKE_R);
@@ -362,38 +359,9 @@ void task_switches(void *t_arg) {
             }
         }
         ptc10_prev_state = ptc10_current_state;
-
-        bool ptc11_current_state = (GPIO_PinRead(SW_PTC11_GPIO, SW_PTC11_PIN) == 0);
-        if (ptc11_current_state && !ptc11_prev_state)
-        {
-            if (l_handle_led_snake_l)
-            {
-                vTaskResume(l_handle_led_snake_l);
-            }
-        }
-        ptc11_prev_state = ptc11_current_state;
-
-        bool ptc12_current_state = (GPIO_PinRead(SW_PTC12_GPIO, SW_PTC12_PIN) == 0);
-        if (ptc12_current_state && !ptc12_prev_state)
-        {
-            if (l_handle_led_snake_r)
-            {
-                vTaskResume(l_handle_led_snake_r);
-            }
-        }
-        ptc12_prev_state = ptc12_current_state;
-
-        if (ptc11_current_state && ptc12_current_state)
-        {
-            if (l_handle_led_both_snakes)
-            {
-                vTaskResume(l_handle_led_both_snakes);
-            }
-        }
-
         vTaskDelay(pdMS_TO_TICKS(10));
     }
-}*/
+}
 
 
 void task_rgb_brightness_control(void *t_arg)
