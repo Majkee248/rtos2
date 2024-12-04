@@ -238,7 +238,6 @@ void task_all_off(void *t_arg) {
 void task_switches(void *t_arg) {
     TaskHandle_t l_handle_led_snake_l = xTaskGetHandle(TASK_NAME_LED_SNAKE_L);
     TaskHandle_t l_handle_led_snake_r = xTaskGetHandle(TASK_NAME_LED_SNAKE_R);
-    TaskHandle_t l_handle_led_snake_back = xTaskGetHandle(TASK_NAME_LED_SNAKE_BACK);
     TaskHandle_t l_handle_led_all_on = xTaskGetHandle(TASK_NAME_ALL_ON);
     TaskHandle_t l_handle_led_all_off = xTaskGetHandle(TASK_NAME_ALL_OFF);
 
@@ -246,82 +245,34 @@ void task_switches(void *t_arg) {
     uint8_t ptc9_click_count = 0;
     TickType_t last_ptc10_click_time = 0;
     uint8_t ptc10_click_count = 0;
-    TickType_t last_ptc11_click_time = 0;
-    uint8_t ptc11_click_count = 0;
-    TickType_t last_ptc12_click_time = 0;
-    uint8_t ptc12_click_count = 0;
+
 
     while (1) {
         if (GPIO_PinRead(SW_PTC9_GPIO, SW_PTC9_PIN) == 0) {
-            TickType_t current_time = xTaskGetTickCount();
-            if (current_time - last_ptc9_click_time < DOUBLE_CLICK_TIMEOUT_TICKS) {
-                ptc9_click_count++;
-            } else {
-                ptc9_click_count = 1;
+            if (l_handle_led_snake_l) {
+                vTaskResume(l_handle_led_snake_l);
+                vTaskDelay(pdMS_TO_TICKS(300));
             }
-            last_ptc9_click_time = current_time;
-
-            if (ptc9_click_count == 2) {
-                if (l_handle_led_all_on) {
-                    vTaskResume(l_handle_led_all_on);
-                }
-                ptc9_click_count = 0;
-            }
-            vTaskDelay(pdMS_TO_TICKS(DEBOUNCE_DELAY_MS));
         }
 
         if (GPIO_PinRead(SW_PTC10_GPIO, SW_PTC10_PIN) == 0) {
-            TickType_t current_time = xTaskGetTickCount();
-            if (current_time - last_ptc10_click_time < DOUBLE_CLICK_TIMEOUT_TICKS) {
-                ptc10_click_count++;
-            } else {
-                ptc10_click_count = 1;
+            if (l_handle_led_snake_r) {
+                vTaskResume(l_handle_led_snake_r);
+                vTaskDelay(pdMS_TO_TICKS(300));
             }
-            last_ptc10_click_time = current_time;
-
-            if (ptc10_click_count == 2) {
-                if (l_handle_led_all_off) {
-                    vTaskResume(l_handle_led_all_off);
-                }
-                ptc10_click_count = 0;
-            }
-            vTaskDelay(pdMS_TO_TICKS(DEBOUNCE_DELAY_MS));
         }
 
         if (GPIO_PinRead(SW_PTC11_GPIO, SW_PTC11_PIN) == 0) {
-            TickType_t current_time = xTaskGetTickCount();
-            if (current_time - last_ptc11_click_time < DOUBLE_CLICK_TIMEOUT_TICKS) {
-                ptc11_click_count++;
-            } else {
-                ptc11_click_count = 1;
+            if (l_handle_led_snake_back) {
+                vTaskResume(l_handle_led_snake_back);
+                vTaskDelay(pdMS_TO_TICKS(300));
             }
-            last_ptc11_click_time = current_time;
-
-            if (ptc11_click_count == 2) {
-                if (l_handle_led_snake_back) {
-                    vTaskResume(l_handle_led_snake_back);
-                }
-                ptc11_click_count = 0;
-            }
-            vTaskDelay(pdMS_TO_TICKS(DEBOUNCE_DELAY_MS));
         }
-
         if (GPIO_PinRead(SW_PTC12_GPIO, SW_PTC12_PIN) == 0) {
-            TickType_t current_time = xTaskGetTickCount();
-            if (current_time - last_ptc12_click_time < DOUBLE_CLICK_TIMEOUT_TICKS) {
-                ptc12_click_count++;
-            } else {
-                ptc12_click_count = 1;
+            if (l_handle_led_all_on) {
+                vTaskResume(l_handle_led_all_on);
+                vTaskDelay(pdMS_TO_TICKS(300));
             }
-            last_ptc12_click_time = current_time;
-
-            if (ptc12_click_count == 2) {
-                if (l_handle_led_snake_back) {
-                    vTaskResume(l_handle_led_snake_back);
-                }
-                ptc12_click_count = 0;
-            }
-            vTaskDelay(pdMS_TO_TICKS(DEBOUNCE_DELAY_MS));
         }
 
         vTaskDelay(pdMS_TO_TICKS(10));
