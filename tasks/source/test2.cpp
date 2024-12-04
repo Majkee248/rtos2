@@ -225,25 +225,83 @@ void task_snake_right(void *t_arg) {
 }
 
 void task_both_snakes(void *t_arg){
-    TaskHandle_t l_handle_led_snake_l = xTaskGetHandle(TASK_NAME_LED_SNAKE_L);
-    TaskHandle_t l_handle_led_snake_r = xTaskGetHandle(TASK_NAME_LED_SNAKE_R);
-
     while (1) {
-        if (l_handle_led_snake_l) {
-            vTaskResume(l_handle_led_snake_l);
-            vTaskDelay(pdMS_TO_TICKS(2000));
-        }
 
-        if (l_handle_led_snake_r) {
-            vTaskResume(l_handle_led_snake_r);
-            vTaskDelay(pdMS_TO_TICKS(2000));
+        for (int inx = 0; inx < LED_PTC_NUM; inx++) {
+            GPIO_PinWrite(g_led_ptc[inx].m_led_gpio, g_led_ptc[inx].m_led_pin, 1);
         }
-
         vTaskSuspend(NULL);
+
+
+        for (int inx = 0; inx < LED_PTC_NUM; inx++) {
+            GPIO_PinWrite(g_led_ptc[inx].m_led_gpio, g_led_ptc[inx].m_led_pin, 0);
+            vTaskDelay(pdMS_TO_TICKS(200));
+        }
+
+        for (int inx = LED_PTC_NUM - 1; inx >= 0; inx--) {
+            GPIO_PinWrite(g_led_ptc[inx].m_led_gpio, g_led_ptc[inx].m_led_pin, 1);
+            vTaskDelay(pdMS_TO_TICKS(200));
+        }
+
+
+        for (int inx = LED_PTC_NUM - 1; inx >= 0; inx--) {
+            GPIO_PinWrite(g_led_ptc[inx].m_led_gpio, g_led_ptc[inx].m_led_pin, 0);
+            vTaskDelay(pdMS_TO_TICKS(200));
+        }
+
+
+        for (int inx = 0; inx < LED_PTC_NUM; inx++) {
+            GPIO_PinWrite(g_led_ptc[inx].m_led_gpio, g_led_ptc[inx].m_led_pin, 1);
+            vTaskDelay(pdMS_TO_TICKS(200));
+        }
     }
 }
 
-void task_switches(void *t_arg)
+void task_switches(void *t_arg) {
+    TaskHandle_t l_handle_led_snake_l = xTaskGetHandle(TASK_NAME_LED_SNAKE_L);
+    TaskHandle_t l_handle_led_snake_r = xTaskGetHandle(TASK_NAME_LED_SNAKE_R);
+    TaskHandle_t l_handle_led_all_on = xTaskGetHandle(TASK_NAME_ALL_ON);
+    TaskHandle_t l_handle_led_all_off = xTaskGetHandle(TASK_NAME_ALL_OFF);
+
+    TickType_t last_ptc9_click_time = 0;
+    uint8_t ptc9_click_count = 0;
+    TickType_t last_ptc10_click_time = 0;
+    uint8_t ptc10_click_count = 0;
+
+
+    while (1) {
+        if (GPIO_PinRead(SW_PTC9_GPIO, SW_PTC9_PIN) == 0) {
+            if (l_handle_led_snake_l) {
+                vTaskResume(l_handle_led_snake_l);
+                vTaskDelay(pdMS_TO_TICKS(300));
+            }
+        }
+
+        if (GPIO_PinRead(SW_PTC10_GPIO, SW_PTC10_PIN) == 0) {
+            if (l_handle_led_snake_r) {
+                vTaskResume(l_handle_led_snake_r);
+                vTaskDelay(pdMS_TO_TICKS(300));
+            }
+        }
+
+        if (GPIO_PinRead(SW_PTC11_GPIO, SW_PTC11_PIN) == 0) {
+            if (l_handle_led_snake_back) {
+                vTaskResume(l_handle_led_snake_back);
+                vTaskDelay(pdMS_TO_TICKS(300));
+            }
+        }
+        if (GPIO_PinRead(SW_PTC12_GPIO, SW_PTC12_PIN) == 0) {
+            if (l_handle_led_all_on) {
+                vTaskResume(l_handle_led_all_on);
+                vTaskDelay(pdMS_TO_TICKS(300));
+            }
+        }
+
+        vTaskDelay(pdMS_TO_TICKS(10));
+    }
+}
+
+/*void task_switches(void *t_arg)
 {
     TaskHandle_t l_handle_led_snake_l = xTaskGetHandle(TASK_NAME_LED_SNAKE_L);
     TaskHandle_t l_handle_led_snake_r = xTaskGetHandle(TASK_NAME_LED_SNAKE_R);
@@ -344,7 +402,9 @@ void task_switches(void *t_arg)
 
         vTaskDelay(pdMS_TO_TICKS(10));
     }
-}
+}*/
+
+
 void task_rgb_brightness_control(void *t_arg)
 {
     uint8_t counter = 0;
