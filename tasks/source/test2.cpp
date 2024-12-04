@@ -213,7 +213,7 @@ void task_all_on(void *t_arg) {
             GPIO_PinWrite(g_led_ptc[inx].m_led_gpio, g_led_ptc[inx].m_led_pin, 1);
         }
         for (int inx = 0; inx < LED_PTB_NUM; inx++) {
-            GPIO_PinWrite(g_led_rgb[inx].m_led_gpio, g_led_rgb[inx].m_led_pin, 1);
+            GPIO_PinWrite(g_led_ptc[inx].m_led_gpio, g_led_ptc[inx].m_led_pin, 1);
         }
         vTaskSuspend(NULL);
     }
@@ -228,7 +228,7 @@ void task_all_off(void *t_arg) {
             GPIO_PinWrite(g_led_ptc[inx].m_led_gpio, g_led_ptc[inx].m_led_pin, 0);
         }
         for (int inx = 0; inx < LED_PTB_NUM; inx++) {
-            GPIO_PinWrite(g_led_rgb[inx].m_led_gpio, g_led_rgb[inx].m_led_pin, 0);
+            GPIO_PinWrite(g_led_ptc[inx].m_led_gpio, g_led_ptc[inx].m_led_pin, 0);
         }
         vTaskSuspend(NULL);
     }
