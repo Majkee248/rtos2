@@ -225,35 +225,21 @@ void task_snake_right(void *t_arg) {
 }
 
 void task_both_snakes(void *t_arg){
+    TaskHandle_t l_handle_led_snake_l = xTaskGetHandle(TASK_NAME_LED_SNAKE_L);
+    TaskHandle_t l_handle_led_snake_r = xTaskGetHandle(TASK_NAME_LED_SNAKE_R);
+
     while (1) {
-
-        for (int inx = 0; inx < LED_PTC_NUM; inx++) {
-            GPIO_PinWrite(g_led_ptc[inx].m_led_gpio, g_led_ptc[inx].m_led_pin, 1);
+        if (l_handle_led_snake_l) {
+            vTaskResume(l_handle_led_snake_l);
+            vTaskDelay(pdMS_TO_TICKS(2000));
         }
+
+        if (l_handle_led_snake_r) {
+            vTaskResume(l_handle_led_snake_r);
+            vTaskDelay(pdMS_TO_TICKS(2000));
+        }
+
         vTaskSuspend(NULL);
-
-
-        for (int inx = 0; inx < LED_PTC_NUM; inx++) {
-            GPIO_PinWrite(g_led_ptc[inx].m_led_gpio, g_led_ptc[inx].m_led_pin, 0);
-            vTaskDelay(pdMS_TO_TICKS(200));
-        }
-
-        for (int inx = LED_PTC_NUM - 1; inx >= 0; inx--) {
-            GPIO_PinWrite(g_led_ptc[inx].m_led_gpio, g_led_ptc[inx].m_led_pin, 1);
-            vTaskDelay(pdMS_TO_TICKS(200));
-        }
-
-
-        for (int inx = LED_PTC_NUM - 1; inx >= 0; inx--) {
-            GPIO_PinWrite(g_led_ptc[inx].m_led_gpio, g_led_ptc[inx].m_led_pin, 0);
-            vTaskDelay(pdMS_TO_TICKS(200));
-        }
-
-
-        for (int inx = 0; inx < LED_PTC_NUM; inx++) {
-            GPIO_PinWrite(g_led_ptc[inx].m_led_gpio, g_led_ptc[inx].m_led_pin, 1);
-            vTaskDelay(pdMS_TO_TICKS(200));
-        }
     }
 }
 
@@ -441,10 +427,6 @@ void task_rgb_brightness_control(void *t_arg)
         vTaskDelay(pdMS_TO_TICKS(1));
     }
 }
-
-
-
-
 
 int main(void) {
 
