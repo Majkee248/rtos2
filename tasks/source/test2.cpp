@@ -70,6 +70,7 @@
 #define TASK_NAME_LED_PTA		"led_pta"
 #define TASK_NAME_LED_SNAKE_L	"led_snake_l"
 #define TASK_NAME_LED_SNAKE_R	"led_snake_r"
+#define TASK_NAME_SNAKE_BACK     "led_snake_back"
 
 #define LED_PTA_NUM 	2
 #define LED_PTC_NUM		8
@@ -132,7 +133,6 @@ void task_snake_left(void *t_arg) {
         }
         vTaskSuspend(NULL);
 
-
         for (int inx = 0; inx < LED_PTC_NUM; inx++) {
             GPIO_PinWrite(g_led_ptc[inx].m_led_gpio, g_led_ptc[inx].m_led_pin, 0);
             vTaskDelay(pdMS_TO_TICKS(200));
@@ -166,23 +166,52 @@ void task_snake_right(void *t_arg) {
     }
 }
 
+void task_snake_back(void *t_arg) {
+    while (1) {
+        for (int inx = 0; inx < LED_PTC_NUM; inx++) {
+            GPIO_PinWrite(g_led_ptc[inx].m_led_gpio, g_led_ptc[inx].m_led_pin, 1);
+        }
+        vTaskSuspend(NULL);
+
+        for (int inx = 0; inx < LED_PTC_NUM; inx++) {
+            GPIO_PinWrite(g_led_ptc[inx].m_led_gpio, g_led_ptc[inx].m_led_pin, 0);
+            vTaskDelay(pdMS_TO_TICKS(200));
+        }
+
+        for (int inx = LED_PTC_NUM - 1; inx >= 0; inx--) {
+            GPIO_PinWrite(g_led_ptc[inx].m_led_gpio, g_led_ptc[inx].m_led_pin, 0);
+            vTaskDelay(pdMS_TO_TICKS(200));
+        }
+        for (int inx = 0; inx < LED_PTC_NUM; inx++) {
+            GPIO_PinWrite(g_led_ptc[inx].m_led_gpio, g_led_ptc[inx].m_led_pin, 1);
+            vTaskDelay(pdMS_TO_TICKS(200));
+        }
+    }
+}
+
 void task_switches(void *t_arg) {
     TaskHandle_t l_handle_led_snake_l = xTaskGetHandle(TASK_NAME_LED_SNAKE_L);
     TaskHandle_t l_handle_led_snake_r = xTaskGetHandle(TASK_NAME_LED_SNAKE_R);
+    TaskHandle_t l_handle_led_snake_back = xTaskGetHandle(TASK_NAME_LED_SNAKE_BACK);
 
     while (1) {
-        // test PTC11 switch
-        if (GPIO_PinRead(SW_PTC11_GPIO, SW_PTC11_PIN) == 0) {
+        if (GPIO_PinRead(SW_PTC11_GPIO, SW_PTC11_PIN) == 0 && GPIO_PinRead(SW_PTC12_GPIO, SW_PTC12_PIN) == 1) {
             if (l_handle_led_snake_l) {
                 vTaskResume(l_handle_led_snake_l);
                 vTaskDelay(pdMS_TO_TICKS(300));
             }
         }
 
-        // test PTC12 switch
-        if (GPIO_PinRead(SW_PTC12_GPIO, SW_PTC12_PIN) == 0) {
+        if (GPIO_PinRead(SW_PTC12_GPIO, SW_PTC12_PIN) == 0 && GPIO_PinRead(SW_PTC11_GPIO, SW_PTC11_PIN) == 1) {
             if (l_handle_led_snake_r) {
                 vTaskResume(l_handle_led_snake_r);
+                vTaskDelay(pdMS_TO_TICKS(300));
+            }
+        }
+        
+        if (GPIO_PinRead(SW_PTC11_GPIO, SW_PTC11_PIN) == 0 && GPIO_PinRead(SW_PTC12_GPIO, SW_PTC12_PIN) == 0) {
+            if (l_handle_led_snake_back) {
+                vTaskResume(l_handle_led_snake_back);
                 vTaskDelay(pdMS_TO_TICKS(300));
             }
         }
@@ -227,6 +256,10 @@ int main(void) {
     }
 
     if ( xTaskCreate( task_switches, TASK_NAME_SWITCHES, configMINIMAL_STACK_SIZE + 100, NULL, NORMAL_TASK_PRIORITY, NULL) != pdPASS )
+    {
+        PRINTF( "Unable to create task '%s'!\r\n", TASK_NAME_SWITCHES );
+    }
+    if ( xTaskCreate(task_snake_back(), TASK_NAME_LED_SNAKE_BACK, configMINIMAL_STACK_SIZE + 100, NULL, NORMAL_TASK_PRIORITY, NULL) != pdPASS )
     {
         PRINTF( "Unable to create task '%s'!\r\n", TASK_NAME_SWITCHES );
     }
