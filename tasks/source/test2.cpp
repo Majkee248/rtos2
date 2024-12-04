@@ -64,65 +64,59 @@ void task_led_pta_blink(void *t_arg) {
 
 void task_snake_left(void *t_arg) {
     is_task_snake_l_running = true;
-    while (1) {
-        for (int inx = 0; inx < LED_PTC_NUM; inx++) {
-            GPIO_PinWrite(g_led_ptc[inx].m_led_gpio, g_led_ptc[inx].m_led_pin, 1);
-        }
-        vTaskSuspend(NULL);
-        for (int inx = 0; inx < LED_PTC_NUM; inx++) {
-            GPIO_PinWrite(g_led_ptc[inx].m_led_gpio, g_led_ptc[inx].m_led_pin, 0);
-            vTaskDelay(pdMS_TO_TICKS(200));
-        }
-        for (int inx = LED_PTC_NUM - 1; inx >= 0; inx--) {
-            GPIO_PinWrite(g_led_ptc[inx].m_led_gpio, g_led_ptc[inx].m_led_pin, 1);
-            vTaskDelay(pdMS_TO_TICKS(200));
-        }
+    for (int inx = 0; inx < LED_PTC_NUM; inx++) {
+        GPIO_PinWrite(g_led_ptc[inx].m_led_gpio, g_led_ptc[inx].m_led_pin, 1);
+    }
+    vTaskSuspend(NULL);
+    for (int inx = 0; inx < LED_PTC_NUM; inx++) {
+        GPIO_PinWrite(g_led_ptc[inx].m_led_gpio, g_led_ptc[inx].m_led_pin, 0);
+        vTaskDelay(pdMS_TO_TICKS(200));
+    }
+    for (int inx = LED_PTC_NUM - 1; inx >= 0; inx--) {
+        GPIO_PinWrite(g_led_ptc[inx].m_led_gpio, g_led_ptc[inx].m_led_pin, 1);
+        vTaskDelay(pdMS_TO_TICKS(200));
     }
     is_task_snake_l_running = false;
 }
 
 void task_snake_right(void *t_arg) {
     is_task_snake_r_running = true;
-    while (1) {
-        for (int inx = 0; inx < LED_PTC_NUM; inx++) {
-            GPIO_PinWrite(g_led_ptc[inx].m_led_gpio, g_led_ptc[inx].m_led_pin, 1);
-        }
-        vTaskSuspend(NULL);
-        for (int inx = LED_PTC_NUM - 1; inx >= 0; inx--) {
-            GPIO_PinWrite(g_led_ptc[inx].m_led_gpio, g_led_ptc[inx].m_led_pin, 0);
-            vTaskDelay(pdMS_TO_TICKS(200));
-        }
-        for (int inx = 0; inx < LED_PTC_NUM; inx++) {
-            GPIO_PinWrite(g_led_ptc[inx].m_led_gpio, g_led_ptc[inx].m_led_pin, 1);
-            vTaskDelay(pdMS_TO_TICKS(200));
-        }
+    for (int inx = 0; inx < LED_PTC_NUM; inx++) {
+        GPIO_PinWrite(g_led_ptc[inx].m_led_gpio, g_led_ptc[inx].m_led_pin, 1);
+    }
+    vTaskSuspend(NULL);
+    for (int inx = LED_PTC_NUM - 1; inx >= 0; inx--) {
+        GPIO_PinWrite(g_led_ptc[inx].m_led_gpio, g_led_ptc[inx].m_led_pin, 0);
+        vTaskDelay(pdMS_TO_TICKS(200));
+    }
+    for (int inx = 0; inx < LED_PTC_NUM; inx++) {
+        GPIO_PinWrite(g_led_ptc[inx].m_led_gpio, g_led_ptc[inx].m_led_pin, 1);
+        vTaskDelay(pdMS_TO_TICKS(200));
     }
     is_task_snake_r_running = false;
 }
 
 void task_snake_back(void *t_arg) {
     is_task_snake_back_running = true;
-    while (1) {
-        for (int inx = 0; inx < LED_PTC_NUM; inx++) {
-            GPIO_PinWrite(g_led_ptc[inx].m_led_gpio, g_led_ptc[inx].m_led_pin, 1);
-        }
-        vTaskSuspend(NULL);
-        for (int inx = 0; inx < LED_PTC_NUM; inx++) {
-            GPIO_PinWrite(g_led_ptc[inx].m_led_gpio, g_led_ptc[inx].m_led_pin, 0);
-            vTaskDelay(pdMS_TO_TICKS(200));
-        }
-        for (int inx = LED_PTC_NUM - 1; inx >= 0; inx--) {
-            GPIO_PinWrite(g_led_ptc[inx].m_led_gpio, g_led_ptc[inx].m_led_pin, 1);
-            vTaskDelay(pdMS_TO_TICKS(200));
-        }
-        for (int inx = LED_PTC_NUM - 1; inx >= 0; inx--) {
-            GPIO_PinWrite(g_led_ptc[inx].m_led_gpio, g_led_ptc[inx].m_led_pin, 0);
-            vTaskDelay(pdMS_TO_TICKS(200));
-        }
-        for (int inx = 0; inx < LED_PTC_NUM; inx++) {
-            GPIO_PinWrite(g_led_ptc[inx].m_led_gpio, g_led_ptc[inx].m_led_pin, 1);
-            vTaskDelay(pdMS_TO_TICKS(200));
-        }
+    for (int inx = 0; inx < LED_PTC_NUM; inx++) {
+        GPIO_PinWrite(g_led_ptc[inx].m_led_gpio, g_led_ptc[inx].m_led_pin, 1);
+    }
+    vTaskSuspend(NULL);
+    for (int inx = 0; inx < LED_PTC_NUM; inx++) {
+        GPIO_PinWrite(g_led_ptc[inx].m_led_gpio, g_led_ptc[inx].m_led_pin, 0);
+        vTaskDelay(pdMS_TO_TICKS(200));
+    }
+    for (int inx = LED_PTC_NUM - 1; inx >= 0; inx--) {
+        GPIO_PinWrite(g_led_ptc[inx].m_led_gpio, g_led_ptc[inx].m_led_pin, 1);
+        vTaskDelay(pdMS_TO_TICKS(200));
+    }
+    for (int inx = LED_PTC_NUM - 1; inx >= 0; inx--) {
+        GPIO_PinWrite(g_led_ptc[inx].m_led_gpio, g_led_ptc[inx].m_led_pin, 0);
+        vTaskDelay(pdMS_TO_TICKS(200));
+    }
+    for (int inx = 0; inx < LED_PTC_NUM; inx++) {
+        GPIO_PinWrite(g_led_ptc[inx].m_led_gpio, g_led_ptc[inx].m_led_pin, 1);
+        vTaskDelay(pdMS_TO_TICKS(200));
     }
     is_task_snake_back_running = false;
 }
@@ -136,6 +130,9 @@ void task_switches(void *t_arg) {
         if (GPIO_PinRead(SW_PTC9_GPIO, SW_PTC9_PIN) == 0 && !is_task_snake_l_running) {
             if (l_handle_led_snake_l) {
                 vTaskResume(l_handle_led_snake_l);
+                while (is_task_snake_l_running) {
+                    vTaskDelay(pdMS_TO_TICKS(10));
+                }
                 vTaskDelay(pdMS_TO_TICKS(300));
             }
         }
@@ -143,6 +140,9 @@ void task_switches(void *t_arg) {
         if (GPIO_PinRead(SW_PTC10_GPIO, SW_PTC10_PIN) == 0 && !is_task_snake_r_running) {
             if (l_handle_led_snake_r) {
                 vTaskResume(l_handle_led_snake_r);
+                while (is_task_snake_r_running) {
+                    vTaskDelay(pdMS_TO_TICKS(10));
+                }
                 vTaskDelay(pdMS_TO_TICKS(300));
             }
         }
@@ -150,6 +150,9 @@ void task_switches(void *t_arg) {
         if (GPIO_PinRead(SW_PTC11_GPIO, SW_PTC11_PIN) == 0 && !is_task_snake_back_running) {
             if (l_handle_led_snake_back) {
                 vTaskResume(l_handle_led_snake_back);
+                while (is_task_snake_back_running) {
+                    vTaskDelay(pdMS_TO_TICKS(10));
+                }
                 vTaskDelay(pdMS_TO_TICKS(300));
             }
         }
