@@ -75,6 +75,9 @@
 #define LED_PTC_NUM		8
 #define LED_PTB_NUM		9
 
+uint32_t site = 0;
+
+
 // pair of GPIO port and LED pin.
 struct LED_Data
 {
@@ -121,80 +124,70 @@ void task_led_pta_blink( void *t_arg )
 }
 
 // This task is snake animation from left side on red LEDs
-void task_snake_left( void *t_arg )
-{
-    while ( 1 )
-    {
-        vTaskSuspend( 0 );
+void task_snake_left(void *t_arg) {
+    while (1) {
 
-        for ( int inx = 0; inx < LED_PTC_NUM; inx++ )
-        {
-            // switch LED on
-            GPIO_PinWrite( g_led_ptc[ inx ].m_led_gpio, g_led_ptc[ inx ].m_led_pin, 1 );
-            vTaskDelay( 200 );
-            // switch LED off
-            GPIO_PinWrite( g_led_ptc[ inx ].m_led_gpio, g_led_ptc[ inx ].m_led_pin, 0 );
+        for (int inx = 0; inx < LED_PTC_NUM; inx++) {
+            GPIO_PinWrite(g_led_ptc[inx].m_led_gpio, g_led_ptc[inx].m_led_pin, 1);
+        }
+        vTaskSuspend(NULL);
+
+
+        for (int inx = 0; inx < LED_PTC_NUM; inx++) {
+            GPIO_PinWrite(g_led_ptc[inx].m_led_gpio, g_led_ptc[inx].m_led_pin, 0);
+            vTaskDelay(pdMS_TO_TICKS(200));
+        }
+
+
+        for (int inx = 0; inx < LED_PTC_NUM; inx++) {
+            GPIO_PinWrite(g_led_ptc[inx].m_led_gpio, g_led_ptc[inx].m_led_pin, 1);
+            vTaskDelay(pdMS_TO_TICKS(200));
         }
     }
 }
 
-// This task is snake animation from right side on red LEDs
-void task_snake_right( void *t_arg )
-{
-    while ( 1 )
-    {
-        vTaskSuspend( 0 );
+void task_snake_right(void *t_arg) {
+    while (1) {
+        for (int inx = 0; inx < LED_PTC_NUM; inx++) {
+            GPIO_PinWrite(g_led_ptc[inx].m_led_gpio, g_led_ptc[inx].m_led_pin, 1);
+        }
+        vTaskSuspend(NULL);
 
-        for ( int inx = LED_PTC_NUM - 1; inx >= 0; inx-- )
-        {
-            // switch LED on
-            GPIO_PinWrite( g_led_ptc[ inx ].m_led_gpio, g_led_ptc[ inx ].m_led_pin, 1 );
-            vTaskDelay( 200 );
-            // switch LED off
-            GPIO_PinWrite( g_led_ptc[ inx ].m_led_gpio, g_led_ptc[ inx ].m_led_pin, 0 );
+
+        for (int inx = LED_PTC_NUM - 1; inx >= 0; inx--) {
+            GPIO_PinWrite(g_led_ptc[inx].m_led_gpio, g_led_ptc[inx].m_led_pin, 0);
+            vTaskDelay(pdMS_TO_TICKS(200));
+        }
+
+        for (int inx = LED_PTC_NUM - 1; inx >= 0; inx--) {
+            GPIO_PinWrite(g_led_ptc[inx].m_led_gpio, g_led_ptc[inx].m_led_pin, 1);
+            vTaskDelay(pdMS_TO_TICKS(200));
         }
     }
 }
 
-// This task monitors switches and control others led_* tasks
-void task_switches( void *t_arg )
-{
-    // Get task handles for task names
-    TaskHandle_t l_handle_led_pta = xTaskGetHandle( TASK_NAME_LED_PTA );
-    TaskHandle_t l_handle_led_snake_l = xTaskGetHandle( TASK_NAME_LED_SNAKE_L );
-    TaskHandle_t l_handle_led_snake_r = xTaskGetHandle( TASK_NAME_LED_SNAKE_R );
+void task_switches(void *t_arg) {
+    TaskHandle_t l_handle_led_snake_l = xTaskGetHandle(TASK_NAME_LED_SNAKE_L);
+    TaskHandle_t l_handle_led_snake_r = xTaskGetHandle(TASK_NAME_LED_SNAKE_R);
 
-    while ( 1 )
-    {
-        // test PTC9 switch
-        if ( GPIO_PinRead( SW_PTC9_GPIO, SW_PTC9_PIN ) == 0 )
-        {
-            if ( l_handle_led_pta )
-                vTaskSuspend( l_handle_led_pta );
-        }
-
-        // test PTC10 switch
-        if ( GPIO_PinRead( SW_PTC10_GPIO, SW_PTC10_PIN ) == 0 )
-        {
-            if ( l_handle_led_pta )
-                vTaskResume( l_handle_led_pta );
-        }
-
+    while (1) {
         // test PTC11 switch
-        if ( GPIO_PinRead( SW_PTC11_GPIO, SW_PTC11_PIN ) == 0 )
-        {
-            if ( l_handle_led_snake_l )
-                vTaskResume( l_handle_led_snake_l );
+        if (GPIO_PinRead(SW_PTC11_GPIO, SW_PTC11_PIN) == 0) {
+            if (l_handle_led_snake_l) {
+                vTaskResume(l_handle_led_snake_l);
+                vTaskDelay(pdMS_TO_TICKS(300));
+            }
         }
 
         // test PTC12 switch
-        if ( GPIO_PinRead( SW_PTC12_GPIO, SW_PTC12_PIN ) == 0 )
-        {
-            if ( l_handle_led_snake_r )
-                vTaskResume( l_handle_led_snake_r );
+        if (GPIO_PinRead(SW_PTC12_GPIO, SW_PTC12_PIN) == 0) {
+            if (l_handle_led_snake_r) {
+                vTaskResume(l_handle_led_snake_r);
+                vTaskDelay(pdMS_TO_TICKS(300));
+            }
         }
 
-        vTaskDelay( 1 );
+        vTaskDelay(pdMS_TO_TICKS(10));
     }
 }
 
