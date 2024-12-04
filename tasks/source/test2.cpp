@@ -262,7 +262,7 @@ void task_switches(void *t_arg) {
     TaskHandle_t l_handle_led_snake_r = xTaskGetHandle(TASK_NAME_LED_SNAKE_R);
     TaskHandle_t l_handle_led_all_on = xTaskGetHandle(TASK_NAME_ALL_ON);
     TaskHandle_t l_handle_led_all_off = xTaskGetHandle(TASK_NAME_ALL_OFF);
-
+    TaskHandle_t l_handle_led_snake_back = xTaskGetHandle(TASK_NAME_LED_BOTH_SNAKES)
     TickType_t last_ptc9_click_time = 0;
     uint8_t ptc9_click_count = 0;
     TickType_t last_ptc10_click_time = 0;
@@ -290,13 +290,6 @@ void task_switches(void *t_arg) {
                 vTaskDelay(pdMS_TO_TICKS(300));
             }
         }
-        if (GPIO_PinRead(SW_PTC12_GPIO, SW_PTC12_PIN) == 0) {
-            if (l_handle_led_all_on) {
-                vTaskResume(l_handle_led_all_on);
-                vTaskDelay(pdMS_TO_TICKS(300));
-            }
-        }
-
         vTaskDelay(pdMS_TO_TICKS(10));
     }
 }
