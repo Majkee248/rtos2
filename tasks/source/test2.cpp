@@ -71,8 +71,7 @@
 #define TASK_NAME_LED_SNAKE_L	"led_snake_l"
 #define TASK_NAME_LED_SNAKE_R	"led_snake_r"
 #define TASK_NAME_LED_SNAKE_BACK     "led_snake_back"
-#define TASK_NAME_ALL_ON            "all_on"
-#define TASK_NAME_ALL_OFF           "all_off"
+
 
 #define LED_PTA_NUM 	2
 #define LED_PTC_NUM		8
@@ -200,44 +199,10 @@ void task_snake_back(void *t_arg) {
     }
 }
 
-
-void task_all_on(void *t_arg) {
-    while (1) {
-        for (int inx = 0; inx < LED_PTA_NUM; inx++) {
-            GPIO_PinWrite(g_led_pta[inx].m_led_gpio, g_led_pta[inx].m_led_pin, 1);
-        }
-        for (int inx = 0; inx < LED_PTC_NUM; inx++) {
-            GPIO_PinWrite(g_led_ptc[inx].m_led_gpio, g_led_ptc[inx].m_led_pin, 1);
-        }
-        for (int inx = 0; inx < LED_PTB_NUM; inx++) {
-            GPIO_PinWrite(g_led_ptc[inx].m_led_gpio, g_led_ptc[inx].m_led_pin, 1);
-        }
-        vTaskSuspend(NULL);
-    }
-}
-
-void task_all_off(void *t_arg) {
-    while (1) {
-        for (int inx = 0; inx < LED_PTA_NUM; inx++) {
-            GPIO_PinWrite(g_led_pta[inx].m_led_gpio, g_led_pta[inx].m_led_pin, 0);
-        }
-        for (int inx = 0; inx < LED_PTC_NUM; inx++) {
-            GPIO_PinWrite(g_led_ptc[inx].m_led_gpio, g_led_ptc[inx].m_led_pin, 0);
-        }
-        for (int inx = 0; inx < LED_PTB_NUM; inx++) {
-            GPIO_PinWrite(g_led_ptc[inx].m_led_gpio, g_led_ptc[inx].m_led_pin, 0);
-        }
-        vTaskSuspend(NULL);
-    }
-}
-
-
-
 void task_switches(void *t_arg) {
     TaskHandle_t l_handle_led_snake_l = xTaskGetHandle(TASK_NAME_LED_SNAKE_L);
     TaskHandle_t l_handle_led_snake_r = xTaskGetHandle(TASK_NAME_LED_SNAKE_R);
     TaskHandle_t l_handle_led_snake_back = xTaskGetHandle(TASK_NAME_LED_SNAKE_BACK);
-    TaskHandle_t l_handle_led_all_off = xTaskGetHandle(TASK_NAME_ALL_OFF);
 
     while (1) {
         if (GPIO_PinRead(SW_PTC9_GPIO, SW_PTC9_PIN) == 0) {
@@ -257,12 +222,6 @@ void task_switches(void *t_arg) {
         if (GPIO_PinRead(SW_PTC11_GPIO, SW_PTC11_PIN) == 0) {
             if (l_handle_led_snake_back) {
                 vTaskResume(l_handle_led_snake_back);
-                vTaskDelay(pdMS_TO_TICKS(300));
-            }
-        }
-        if (GPIO_PinRead(SW_PTC12_GPIO, SW_PTC12_PIN) == 0) {
-            if (l_handle_led_all_off) {
-                vTaskResume(l_handle_led_all_off);
                 vTaskDelay(pdMS_TO_TICKS(300));
             }
         }
@@ -311,11 +270,6 @@ int main(void) {
         PRINTF( "Unable to create task '%s'!\r\n", TASK_NAME_SWITCHES );
     }
     if ( xTaskCreate(task_snake_back, TASK_NAME_LED_SNAKE_BACK, configMINIMAL_STACK_SIZE + 100, NULL, NORMAL_TASK_PRIORITY, NULL) != pdPASS )
-    {
-        PRINTF( "Unable to create task '%s'!\r\n", TASK_NAME_SWITCHES );
-    }
-
-    if ( xTaskCreate(task_all_of, TASK_NAME_ALL_OFF, configMINIMAL_STACK_SIZE + 100, NULL, NORMAL_TASK_PRIORITY, NULL) != pdPASS )
     {
         PRINTF( "Unable to create task '%s'!\r\n", TASK_NAME_SWITCHES );
     }
