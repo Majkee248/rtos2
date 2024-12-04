@@ -78,9 +78,6 @@
 #define LED_PTC_NUM		8
 #define LED_PTB_NUM		9
 
-#define DOUBLE_CLICK_TIMEOUT_TICKS pdMS_TO_TICKS(500)
-#define DEBOUNCE_DELAY_MS 50
-
 uint32_t site = 0;
 
 
@@ -213,7 +210,7 @@ void task_all_on(void *t_arg) {
             GPIO_PinWrite(g_led_ptc[inx].m_led_gpio, g_led_ptc[inx].m_led_pin, 1);
         }
         for (int inx = 0; inx < LED_PTB_NUM; inx++) {
-            GPIO_PinWrite(g_led_ptc[inx].m_led_gpio, g_led_ptc[inx].m_led_pin, 1);
+            GPIO_PinWrite(g_led_rgb[inx].m_led_gpio, g_led_rgb[inx].m_led_pin, 1);
         }
         vTaskSuspend(NULL);
     }
@@ -228,24 +225,19 @@ void task_all_off(void *t_arg) {
             GPIO_PinWrite(g_led_ptc[inx].m_led_gpio, g_led_ptc[inx].m_led_pin, 0);
         }
         for (int inx = 0; inx < LED_PTB_NUM; inx++) {
-            GPIO_PinWrite(g_led_ptc[inx].m_led_gpio, g_led_ptc[inx].m_led_pin, 0);
+            GPIO_PinWrite(g_led_rgb[inx].m_led_gpio, g_led_rgb[inx].m_led_pin, 0);
         }
         vTaskSuspend(NULL);
     }
 }
 
 
+
 void task_switches(void *t_arg) {
     TaskHandle_t l_handle_led_snake_l = xTaskGetHandle(TASK_NAME_LED_SNAKE_L);
     TaskHandle_t l_handle_led_snake_r = xTaskGetHandle(TASK_NAME_LED_SNAKE_R);
-    TaskHandle_t l_handle_led_all_on = xTaskGetHandle(TASK_NAME_ALL_ON);
+    TaskHandle_t l_handle_led_snake_back = xTaskGetHandle(TASK_NAME_LED_SNAKE_BACK);
     TaskHandle_t l_handle_led_all_off = xTaskGetHandle(TASK_NAME_ALL_OFF);
-
-    TickType_t last_ptc9_click_time = 0;
-    uint8_t ptc9_click_count = 0;
-    TickType_t last_ptc10_click_time = 0;
-    uint8_t ptc10_click_count = 0;
-
 
     while (1) {
         if (GPIO_PinRead(SW_PTC9_GPIO, SW_PTC9_PIN) == 0) {
@@ -269,8 +261,8 @@ void task_switches(void *t_arg) {
             }
         }
         if (GPIO_PinRead(SW_PTC12_GPIO, SW_PTC12_PIN) == 0) {
-            if (l_handle_led_all_on) {
-                vTaskResume(l_handle_led_all_on);
+            if (l_handle_led_all_off) {
+                vTaskResume(l_handle_led_all_off);
                 vTaskDelay(pdMS_TO_TICKS(300));
             }
         }
@@ -323,12 +315,9 @@ int main(void) {
         PRINTF( "Unable to create task '%s'!\r\n", TASK_NAME_SWITCHES );
     }
 
-    if (xTaskCreate(task_all_on, TASK_NAME_ALL_ON, configMINIMAL_STACK_SIZE + 100, NULL, NORMAL_TASK_PRIORITY, NULL) != pdPASS) {
-        PRINTF("Unable to create task '%s'!\r\n", TASK_NAME_ALL_ON);
-    }
-
-    if (xTaskCreate(task_all_off, TASK_NAME_ALL_OFF, configMINIMAL_STACK_SIZE + 100, NULL, NORMAL_TASK_PRIORITY, NULL) != pdPASS) {
-        PRINTF("Unable to create task '%s'!\r\n", TASK_NAME_ALL_OFF);
+    if ( xTaskCreate(task_all_of, TASK_NAME_ALL_OFF, configMINIMAL_STACK_SIZE + 100, NULL, NORMAL_TASK_PRIORITY, NULL) != pdPASS )
+    {
+        PRINTF( "Unable to create task '%s'!\r\n", TASK_NAME_SWITCHES );
     }
 
     vTaskStartScheduler();
