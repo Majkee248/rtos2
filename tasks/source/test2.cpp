@@ -2,6 +2,7 @@
 #include "task.h"
 #include "queue.h"
 #include "timers.h"
+#include "semphr.h"
 #include <stdio.h>
 #include "board.h"
 #include "peripherals.h"
@@ -47,9 +48,9 @@ LED_Data g_led_ptc[LED_PTC_NUM] = {
     { LED_PTC8_PIN, LED_PTC8_GPIO },
 };
 
-bool is_task_snake_l_running = false;
-bool is_task_snake_r_running = false;
-bool is_task_snake_back_running = false;
+SemaphoreHandle_t xSemaphore_snake_l;
+SemaphoreHandle_t xSemaphore_snake_r;
+SemaphoreHandle_t xSemaphore_snake_back;
 
 void task_led_pta_blink(void *t_arg) {
     uint32_t l_inx = 0;
@@ -63,62 +64,71 @@ void task_led_pta_blink(void *t_arg) {
 }
 
 void task_snake_left(void *t_arg) {
-    is_task_snake_l_running = true;
-    for (int inx = 0; inx < LED_PTC_NUM; inx++) {
-        GPIO_PinWrite(g_led_ptc[inx].m_led_gpio, g_led_ptc[inx].m_led_pin, 1);
+    while (1) {
+        if (xSemaphoreTake(xSemaphore_snake_l, portMAX_DELAY) == pdTRUE) {
+            for (int inx = 0; inx < LED_PTC_NUM; inx++) {
+                GPIO_PinWrite(g_led_ptc[inx].m_led_gpio, g_led_ptc[inx].m_led_pin, 1);
+            }
+            vTaskSuspend(NULL);
+            for (int inx = 0; inx < LED_PTC_NUM; inx++) {
+                GPIO_PinWrite(g_led_ptc[inx].m_led_gpio, g_led_ptc[inx].m_led_pin, 0);
+                vTaskDelay(pdMS_TO_TICKS(200));
+            }
+            for (int inx = LED_PTC_NUM - 1; inx >= 0; inx--) {
+                GPIO_PinWrite(g_led_ptc[inx].m_led_gpio, g_led_ptc[inx].m_led_pin, 1);
+                vTaskDelay(pdMS_TO_TICKS(200));
+            }
+            xSemaphoreGive(xSemaphore_snake_l);
+        }
     }
-    vTaskSuspend(NULL);
-    for (int inx = 0; inx < LED_PTC_NUM; inx++) {
-        GPIO_PinWrite(g_led_ptc[inx].m_led_gpio, g_led_ptc[inx].m_led_pin, 0);
-        vTaskDelay(pdMS_TO_TICKS(200));
-    }
-    for (int inx = LED_PTC_NUM - 1; inx >= 0; inx--) {
-        GPIO_PinWrite(g_led_ptc[inx].m_led_gpio, g_led_ptc[inx].m_led_pin, 1);
-        vTaskDelay(pdMS_TO_TICKS(200));
-    }
-    is_task_snake_l_running = false;
 }
 
 void task_snake_right(void *t_arg) {
-    is_task_snake_r_running = true;
-    for (int inx = 0; inx < LED_PTC_NUM; inx++) {
-        GPIO_PinWrite(g_led_ptc[inx].m_led_gpio, g_led_ptc[inx].m_led_pin, 1);
+    while (1) {
+        if (xSemaphoreTake(xSemaphore_snake_r, portMAX_DELAY) == pdTRUE) {
+            for (int inx = 0; inx < LED_PTC_NUM; inx++) {
+                GPIO_PinWrite(g_led_ptc[inx].m_led_gpio, g_led_ptc[inx].m_led_pin, 1);
+            }
+            vTaskSuspend(NULL);
+            for (int inx = LED_PTC_NUM - 1; inx >= 0; inx--) {
+                GPIO_PinWrite(g_led_ptc[inx].m_led_gpio, g_led_ptc[inx].m_led_pin, 0);
+                vTaskDelay(pdMS_TO_TICKS(200));
+            }
+            for (int inx = 0; inx < LED_PTC_NUM; inx++) {
+                GPIO_PinWrite(g_led_ptc[inx].m_led_gpio, g_led_ptc[inx].m_led_pin, 1);
+                vTaskDelay(pdMS_TO_TICKS(200));
+            }
+            xSemaphoreGive(xSemaphore_snake_r);
+        }
     }
-    vTaskSuspend(NULL);
-    for (int inx = LED_PTC_NUM - 1; inx >= 0; inx--) {
-        GPIO_PinWrite(g_led_ptc[inx].m_led_gpio, g_led_ptc[inx].m_led_pin, 0);
-        vTaskDelay(pdMS_TO_TICKS(200));
-    }
-    for (int inx = 0; inx < LED_PTC_NUM; inx++) {
-        GPIO_PinWrite(g_led_ptc[inx].m_led_gpio, g_led_ptc[inx].m_led_pin, 1);
-        vTaskDelay(pdMS_TO_TICKS(200));
-    }
-    is_task_snake_r_running = false;
 }
 
 void task_snake_back(void *t_arg) {
-    is_task_snake_back_running = true;
-    for (int inx = 0; inx < LED_PTC_NUM; inx++) {
-        GPIO_PinWrite(g_led_ptc[inx].m_led_gpio, g_led_ptc[inx].m_led_pin, 1);
+    while (1) {
+        if (xSemaphoreTake(xSemaphore_snake_back, portMAX_DELAY) == pdTRUE) {
+            for (int inx = 0; inx < LED_PTC_NUM; inx++) {
+                GPIO_PinWrite(g_led_ptc[inx].m_led_gpio, g_led_ptc[inx].m_led_pin, 1);
+            }
+            vTaskSuspend(NULL);
+            for (int inx = 0; inx < LED_PTC_NUM; inx++) {
+                GPIO_PinWrite(g_led_ptc[inx].m_led_gpio, g_led_ptc[inx].m_led_pin, 0);
+                vTaskDelay(pdMS_TO_TICKS(200));
+            }
+            for (int inx = LED_PTC_NUM - 1; inx >= 0; inx--) {
+                GPIO_PinWrite(g_led_ptc[inx].m_led_gpio, g_led_ptc[inx].m_led_pin, 1);
+                vTaskDelay(pdMS_TO_TICKS(200));
+            }
+            for (int inx = LED_PTC_NUM - 1; inx >= 0; inx--) {
+                GPIO_PinWrite(g_led_ptc[inx].m_led_gpio, g_led_ptc[inx].m_led_pin, 0);
+                vTaskDelay(pdMS_TO_TICKS(200));
+            }
+            for (int inx = 0; inx < LED_PTC_NUM; inx++) {
+                GPIO_PinWrite(g_led_ptc[inx].m_led_gpio, g_led_ptc[inx].m_led_pin, 1);
+                vTaskDelay(pdMS_TO_TICKS(200));
+            }
+            xSemaphoreGive(xSemaphore_snake_back);
+        }
     }
-    vTaskSuspend(NULL);
-    for (int inx = 0; inx < LED_PTC_NUM; inx++) {
-        GPIO_PinWrite(g_led_ptc[inx].m_led_gpio, g_led_ptc[inx].m_led_pin, 0);
-        vTaskDelay(pdMS_TO_TICKS(200));
-    }
-    for (int inx = LED_PTC_NUM - 1; inx >= 0; inx--) {
-        GPIO_PinWrite(g_led_ptc[inx].m_led_gpio, g_led_ptc[inx].m_led_pin, 1);
-        vTaskDelay(pdMS_TO_TICKS(200));
-    }
-    for (int inx = LED_PTC_NUM - 1; inx >= 0; inx--) {
-        GPIO_PinWrite(g_led_ptc[inx].m_led_gpio, g_led_ptc[inx].m_led_pin, 0);
-        vTaskDelay(pdMS_TO_TICKS(200));
-    }
-    for (int inx = 0; inx < LED_PTC_NUM; inx++) {
-        GPIO_PinWrite(g_led_ptc[inx].m_led_gpio, g_led_ptc[inx].m_led_pin, 1);
-        vTaskDelay(pdMS_TO_TICKS(200));
-    }
-    is_task_snake_back_running = false;
 }
 
 void task_switches(void *t_arg) {
@@ -127,32 +137,35 @@ void task_switches(void *t_arg) {
     TaskHandle_t l_handle_led_snake_back = xTaskGetHandle(TASK_NAME_LED_SNAKE_BACK);
 
     while (1) {
-        if (GPIO_PinRead(SW_PTC9_GPIO, SW_PTC9_PIN) == 0 && !is_task_snake_l_running) {
-            if (l_handle_led_snake_l) {
+        if (GPIO_PinRead(SW_PTC9_GPIO, SW_PTC9_PIN) == 0) {
+            if (l_handle_led_snake_l && xSemaphoreTake(xSemaphore_snake_l, 0) == pdTRUE) {
                 vTaskResume(l_handle_led_snake_l);
-                while (is_task_snake_l_running) {
+                while (eTaskGetState(l_handle_led_snake_l) != eSuspended) {
                     vTaskDelay(pdMS_TO_TICKS(10));
                 }
+                xSemaphoreGive(xSemaphore_snake_l);
                 vTaskDelay(pdMS_TO_TICKS(300));
             }
         }
 
-        if (GPIO_PinRead(SW_PTC10_GPIO, SW_PTC10_PIN) == 0 && !is_task_snake_r_running) {
-            if (l_handle_led_snake_r) {
+        if (GPIO_PinRead(SW_PTC10_GPIO, SW_PTC10_PIN) == 0) {
+            if (l_handle_led_snake_r && xSemaphoreTake(xSemaphore_snake_r, 0) == pdTRUE) {
                 vTaskResume(l_handle_led_snake_r);
-                while (is_task_snake_r_running) {
+                while (eTaskGetState(l_handle_led_snake_r) != eSuspended) {
                     vTaskDelay(pdMS_TO_TICKS(10));
                 }
+                xSemaphoreGive(xSemaphore_snake_r);
                 vTaskDelay(pdMS_TO_TICKS(300));
             }
         }
 
-        if (GPIO_PinRead(SW_PTC11_GPIO, SW_PTC11_PIN) == 0 && !is_task_snake_back_running) {
-            if (l_handle_led_snake_back) {
+        if (GPIO_PinRead(SW_PTC11_GPIO, SW_PTC11_PIN) == 0) {
+            if (l_handle_led_snake_back && xSemaphoreTake(xSemaphore_snake_back, 0) == pdTRUE) {
                 vTaskResume(l_handle_led_snake_back);
-                while (is_task_snake_back_running) {
+                while (eTaskGetState(l_handle_led_snake_back) != eSuspended) {
                     vTaskDelay(pdMS_TO_TICKS(10));
                 }
+                xSemaphoreGive(xSemaphore_snake_back);
                 vTaskDelay(pdMS_TO_TICKS(300));
             }
         }
@@ -170,6 +183,14 @@ int main(void) {
     PRINTF("FreeRTOS task demo program.\r\n");
     PRINTF("Switches PTC9 and PTC10 will stop and run PTAx LEDs blinking.\r\n");
     PRINTF("Switches PTC11 and PTC12 will start snake on red LEDS from the left and right side.\r\n");
+
+    xSemaphore_snake_l = xSemaphoreCreateBinary();
+    xSemaphore_snake_r = xSemaphoreCreateBinary();
+    xSemaphore_snake_back = xSemaphoreCreateBinary();
+
+    xSemaphoreGive(xSemaphore_snake_l);
+    xSemaphoreGive(xSemaphore_snake_r);
+    xSemaphoreGive(xSemaphore_snake_back);
 
     if (xTaskCreate(task_led_pta_blink, TASK_NAME_LED_PTA, configMINIMAL_STACK_SIZE + 100, NULL, NORMAL_TASK_PRIORITY, NULL) != pdPASS) {
         PRINTF("Unable to create task '%s'!\r\n", TASK_NAME_LED_PTA);
