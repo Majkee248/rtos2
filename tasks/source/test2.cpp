@@ -78,21 +78,21 @@
 uint32_t site = 0;
 
 
-// pair of GPIO port and LED pin.
+
 struct LED_Data
 {
     uint32_t m_led_pin;
     GPIO_Type *m_led_gpio;
 };
 
-// all PTAx LEDs in array
+
 LED_Data g_led_pta[ LED_PTA_NUM ] =
         {
                 { LED_PTA1_PIN, LED_PTA1_GPIO },
                 { LED_PTA2_PIN, LED_PTA2_GPIO },
         };
 
-// all PTCx LEDs in array
+
 LED_Data g_led_ptc[ LED_PTC_NUM ] =
         {
                 { LED_PTC0_PIN, LED_PTC0_GPIO },
@@ -123,7 +123,7 @@ void task_led_pta_blink( void *t_arg )
     }
 }
 
-// This task is snake animation from left side on red LEDs
+
 void task_snake_left(void *t_arg) {
     while (1) {
 
@@ -137,12 +137,12 @@ void task_snake_left(void *t_arg) {
             GPIO_PinWrite(g_led_ptc[inx].m_led_gpio, g_led_ptc[inx].m_led_pin, 0);
             vTaskDelay(pdMS_TO_TICKS(200));
         }
-
-
-        for (int inx = 0; inx < LED_PTC_NUM; inx++) {
+        for (int inx = LED_PTC_NUM - 1; inx >= 0; inx--) {
             GPIO_PinWrite(g_led_ptc[inx].m_led_gpio, g_led_ptc[inx].m_led_pin, 1);
             vTaskDelay(pdMS_TO_TICKS(200));
         }
+
+
     }
 }
 
@@ -159,7 +159,7 @@ void task_snake_right(void *t_arg) {
             vTaskDelay(pdMS_TO_TICKS(200));
         }
 
-        for (int inx = LED_PTC_NUM - 1; inx >= 0; inx--) {
+        for (int inx = 0; inx < LED_PTC_NUM; inx++) {
             GPIO_PinWrite(g_led_ptc[inx].m_led_gpio, g_led_ptc[inx].m_led_pin, 1);
             vTaskDelay(pdMS_TO_TICKS(200));
         }
