@@ -46,6 +46,7 @@
 // PTB23	LED_PTB23_PIN  LED_PTB23_GPIO
 
 
+#include <stdio.h>
 #include "board.h"
 #include "peripherals.h"
 #include "pin_mux.h"
@@ -69,10 +70,9 @@
 #define HIGH_TASK_PRIORITY 		(configMAX_PRIORITIES)
 
 #define TASK_NAME_LED_PTA		"led_pta"
-#define TASK_NAME_LED_PTC    "led_ptc"
-
 #define TASK_NAME_SOCKET_SRV	"socket_srv"
 #define TASK_NAME_SOCKET_CLI	"socket_cli"
+#define TASK_NAME_LED_PTC		"led ptc"
 
 #define SOCKET_SRV_TOUT			1000
 #define SOCKET_SRV_BUF_SIZE		256
@@ -87,50 +87,50 @@
 // pair of GPIO port and LED pin.
 struct LED_Data
 {
-	uint32_t m_led_pin;
-	GPIO_Type *m_led_gpio;
+    uint32_t m_led_pin;
+    GPIO_Type *m_led_gpio;
 };
 
 // all PTAx LEDs in array
 LED_Data g_led_pta[ LED_PTA_NUM ] =
-{
-		{ LED_PTA1_PIN, LED_PTA1_GPIO },
-		{ LED_PTA2_PIN, LED_PTA2_GPIO },
-};
+        {
+                { LED_PTA1_PIN, LED_PTA1_GPIO },
+                { LED_PTA2_PIN, LED_PTA2_GPIO },
+        };
 
 // all PTCx LEDs in array
 LED_Data g_led_ptc[ LED_PTC_NUM ] =
-{
-		{ LED_PTC0_PIN, LED_PTC0_GPIO },
-		{ LED_PTC1_PIN, LED_PTC1_GPIO },
-		{ LED_PTC2_PIN, LED_PTC2_GPIO },
-		{ LED_PTC3_PIN, LED_PTC3_GPIO },
-		{ LED_PTC4_PIN, LED_PTC4_GPIO },
-		{ LED_PTC5_PIN, LED_PTC5_GPIO },
-		{ LED_PTC7_PIN, LED_PTC7_GPIO },
-		{ LED_PTC8_PIN, LED_PTC8_GPIO },
-};
+        {
+                { LED_PTC0_PIN, LED_PTC0_GPIO },
+                { LED_PTC1_PIN, LED_PTC1_GPIO },
+                { LED_PTC2_PIN, LED_PTC2_GPIO },
+                { LED_PTC3_PIN, LED_PTC3_GPIO },
+                { LED_PTC4_PIN, LED_PTC4_GPIO },
+                { LED_PTC5_PIN, LED_PTC5_GPIO },
+                { LED_PTC7_PIN, LED_PTC7_GPIO },
+                { LED_PTC8_PIN, LED_PTC8_GPIO },
+        };
 
 
 // Random number generator for TCP/IP stack
-BaseType_t xApplicationGetRandomNumber( uint32_t * tp_pul_number ) { return uxRand(); }
+BaseType_t xApplicationGetRandomNumber( uint32_t * tp_pul_number ) { return rand(); }
 
 
 // Some task stack overflow
 void vApplicationStackOverflowHook( xTaskHandle *tp_task_handle, signed portCHAR *tp_task_name )
 {
-	PRINTF( "STACK PROBLEM %s.\r\n", tp_task_name );
+PRINTF( "STACK PROBLEM %s.\r\n", tp_task_name );
 }
 
 
 // This task blink alternatively both PTAx LEDs
 void task_led_pta_blink( void *t_arg )
 {
-	uint32_t l_inx = 0;
+    uint32_t l_inx = 0;
 
     while ( 1 )
     {
-    	// switch LED on
+        // switch LED on
         GPIO_PinWrite( g_led_pta[ l_inx ].m_led_gpio, g_led_pta[ l_inx ].m_led_pin, 1 );
         vTaskDelay( 200 );
         // switch LED off
@@ -141,20 +141,34 @@ void task_led_pta_blink( void *t_arg )
     }
 }
 
-void task_led_ptc_blink(void *t_arg) {
-    uint32_t l_inx = 0;
+int states[LED_PTC_NUM] = {0, 0, 0, 0, 0, 0, 0, 0};
+int brightnesses[LED_PTC_NUM] = {0, 0, 0, 0, 0, 0, 0, 0};
+int interval = 500;
+void task_led_ptc(void *t_arg)
+{
+    while(1)
+    {
+        for(int i = 0; i < LED_PTC_NUM; i++)
+        {
+            if(states[i] == 0)
+            {
+                GPIO_PinWrite( g_led_ptc[ i ].m_led_gpio, g_led_ptc[ i ].m_led_pin, 0 );
+                continue;
+            }
 
-    while (1) {
-        // Zapnutí LED diody
-        GPIO_PinWrite(g_led_ptc[l_inx].m_led_gpio, g_led_ptc[l_inx].m_led_pin, 1);
-        vTaskDelay(200 / portTICK_PERIOD_MS);
+            for(int k = 0; k < brightnesses[i]; k++)
+            {
+                GPIO_PinWrite( g_led_ptc[ i ].m_led_gpio, g_led_ptc[ i ].m_led_pin, 1 );
+            }
 
-        // Vypnutí LED diody
-        GPIO_PinWrite(g_led_ptc[l_inx].m_led_gpio, g_led_ptc[l_inx].m_led_pin, 0);
+            for(int j = 0; j < interval - brightnesses[i]; j++)
+            {
+                GPIO_PinWrite( g_led_ptc[ i ].m_led_gpio, g_led_ptc[ i ].m_led_pin, 0 );
+            }
 
-        // Přechod na další LED diodu
-        l_inx++;
-        l_inx %= LED_PTC_NUM;
+
+
+        }
     }
 }
 
@@ -162,168 +176,214 @@ void task_led_ptc_blink(void *t_arg) {
 // task socket server
 void task_socket_srv( void *tp_arg )
 {
-	PRINTF( "Task socket server started.\r\n" );
-	TickType_t l_receive_tout = 25000 / portTICK_PERIOD_MS;
+    PRINTF( "Task socket server started.\r\n" );
+    TickType_t l_receive_tout = 25000 / portTICK_PERIOD_MS;
 
-	int l_port = ( int ) tp_arg;
-	struct freertos_sockaddr l_srv_address;
+    int l_port = ( int ) tp_arg;
+    struct freertos_sockaddr l_srv_address;
 
-	// set listening port
-	l_srv_address.sin_port = FreeRTOS_htons( l_port );
-	l_srv_address.sin_addr = FreeRTOS_inet_addr_quick( 0, 0, 0, 0 );
+    // set listening port
+    l_srv_address.sin_port = FreeRTOS_htons( l_port );
+    l_srv_address.sin_addr = FreeRTOS_inet_addr_quick( 0, 0, 0, 0 );
 
-	xSocket_t l_sock_listen;
-	xSocket_t l_sock_client;
-	xWinProperties_t l_win_props;
-	struct freertos_sockaddr from;
-	socklen_t fromSize = sizeof from;
-	BaseType_t l_bind_result;
-	int8_t l_rx_buf[ SOCKET_SRV_BUF_SIZE ]; /* Make sure the stack is large enough to hold these.  Turn on stack overflow checking during debug to be sure. */
+    xSocket_t l_sock_listen;
+    xSocket_t l_sock_client;
+    xWinProperties_t l_win_props;
+    struct freertos_sockaddr from;
+    socklen_t fromSize = sizeof from;
+    BaseType_t l_bind_result;
+    char l_rx_buf[ SOCKET_SRV_BUF_SIZE ]; /* Make sure the stack is large enough to hold these.  Turn on stack overflow checking during debug to be sure. */
 
-	/* Create a socket. */
-	l_sock_listen = FreeRTOS_socket( FREERTOS_AF_INET, FREERTOS_SOCK_STREAM, FREERTOS_IPPROTO_TCP );
-	configASSERT( l_sock_listen != FREERTOS_INVALID_SOCKET );
+    /* Create a socket. */
+    l_sock_listen = FreeRTOS_socket( FREERTOS_AF_INET, FREERTOS_SOCK_STREAM, FREERTOS_IPPROTO_TCP );
+    configASSERT( l_sock_listen != FREERTOS_INVALID_SOCKET );
 
-	l_bind_result = FreeRTOS_bind( l_sock_listen, &l_srv_address, sizeof l_srv_address );
-	configASSERT( l_bind_result == 0 );
+    l_bind_result = FreeRTOS_bind( l_sock_listen, &l_srv_address, sizeof l_srv_address );
+    configASSERT( l_bind_result == 0 );
 
-	// Set a time out so a missing reply does not cause the task to block indefinitely.
-	FreeRTOS_setsockopt( l_sock_listen, 0, FREERTOS_SO_RCVTIMEO, &l_receive_tout, sizeof( l_receive_tout ) );
-	FreeRTOS_setsockopt( l_sock_listen, 0, FREERTOS_SO_SNDTIMEO, &l_receive_tout, sizeof( l_receive_tout ) );
+    // Set a time out so a missing reply does not cause the task to block indefinitely.
+    FreeRTOS_setsockopt( l_sock_listen, 0, FREERTOS_SO_RCVTIMEO, &l_receive_tout, sizeof( l_receive_tout ) );
+    FreeRTOS_setsockopt( l_sock_listen, 0, FREERTOS_SO_SNDTIMEO, &l_receive_tout, sizeof( l_receive_tout ) );
 
-	memset( &l_win_props, '\0', sizeof l_win_props );
-	// Size in units of MSS
-	l_win_props.lTxBufSize   = SOCKET_SRV_BUF_SIZE;
-	l_win_props.lTxWinSize   = 2;
-	l_win_props.lRxBufSize   = SOCKET_SRV_BUF_SIZE;
-	l_win_props.lRxWinSize   = 2;
+    memset( &l_win_props, '\0', sizeof l_win_props );
+    // Size in units of MSS
+    l_win_props.lTxBufSize   = SOCKET_SRV_BUF_SIZE;
+    l_win_props.lTxWinSize   = 2;
+    l_win_props.lRxBufSize   = SOCKET_SRV_BUF_SIZE;
+    l_win_props.lRxWinSize   = 2;
 
-	FreeRTOS_setsockopt( l_sock_listen, 0, FREERTOS_SO_WIN_PROPERTIES, ( void * ) &l_win_props, sizeof( l_win_props ) );
+    FreeRTOS_setsockopt( l_sock_listen, 0, FREERTOS_SO_WIN_PROPERTIES, ( void * ) &l_win_props, sizeof( l_win_props ) );
 
-	FreeRTOS_listen( l_sock_listen, 2 );
+    FreeRTOS_listen( l_sock_listen, 2 );
 
-	PRINTF( "Socket servers started, listen port %u.\r\n", FreeRTOS_ntohs( l_srv_address.sin_port ) );
-	// go!
-	for( ;; )
-	{
-		uint32_t l_reply_count = 0;
-		// wait for client
-		do {
-			l_sock_client = FreeRTOS_accept( l_sock_listen, &from, &fromSize );
-			vTaskDelay( SOCKET_SRV_TOUT );
-		} while ( l_sock_client == NULL );
+    PRINTF( "Socket servers started, listen port %u.\r\n", FreeRTOS_ntohs( l_srv_address.sin_port ) );
+    // go!
+    for( ;; )
+    {
+        uint32_t l_reply_count = 0;
+        // wait for client
+        do {
+            l_sock_client = FreeRTOS_accept( l_sock_listen, &from, &fromSize );
+            vTaskDelay( SOCKET_SRV_TOUT );
+        } while ( l_sock_client == NULL );
 
-		if ( l_sock_client == FREERTOS_INVALID_SOCKET )
-		{
-			PRINTF( "Invalid socket from ACCEPT!\r\n" );
-			continue;
-		}
+        if ( l_sock_client == FREERTOS_INVALID_SOCKET )
+        {
+            PRINTF( "Invalid socket from ACCEPT!\r\n" );
+            continue;
+        }
 
-		vTaskDelay( 100 );
+        vTaskDelay( 100 );
 
-		// Handle echo requests.
-		for ( l_reply_count = 0; pdTRUE; l_reply_count++ )
-		{
-			BaseType_t l_len;
+        // Handle echo requests.
+        for ( l_reply_count = 0; pdTRUE; l_reply_count++ )
+        {
+            BaseType_t l_len;
 
-			// receive data
-			l_len = FreeRTOS_recv(	l_sock_client, l_rx_buf, sizeof( l_rx_buf ), 0 );
-			//
-			if( l_len > 0 )
-			{
-				l_rx_buf[ l_len ] = 0;	// just for printing
+            // receive data
+            l_len = FreeRTOS_recv(	l_sock_client, l_rx_buf, sizeof( l_rx_buf ), 0 );
+            //
+            if( l_len > 0 )
+            {
+                l_rx_buf[ l_len ] = 0;	// just for printing
+                PRINTF("%s\r\n", l_rx_buf);
+                if (strstr(l_rx_buf, "LED") != NULL) {
+                    int num = atoi(&l_rx_buf[4])-1;
+                    char jasB[4];
+                    jasB[0] = l_rx_buf[9];
+                    jasB[1] = l_rx_buf[10];
+                    jasB[2] = l_rx_buf[11];
+                    jasB[3] = 0;
+                    int jas = atoi(jasB);
+                    if (jas < 0) jas = 0;
+                    if (jas > 100) jas = 100;
+                    PRINTF("%s\r\n", jasB);
+                    PRINTF( "jas %d\r\n", jas );
+                    jas *= 5;
+                    if(num >= 0 && num < LED_PTC_NUM) {
+                        if(strstr(l_rx_buf, "ON") != NULL)
+                        {
+                            //GPIO_PinWrite( g_led_ptc[ num ].m_led_gpio, g_led_ptc[ num ].m_led_pin, 1 );
+                            states[num] = 1;
+                            brightnesses[num] = jas;
+                        }
 
-				l_len = FreeRTOS_send( l_sock_client, ( void * ) l_rx_buf, l_len, 0 );
+                        else if(strstr(l_rx_buf, "OFF") != NULL) {
+                            //GPIO_PinWrite( g_led_ptc[ num ].m_led_gpio, g_led_ptc[ num ].m_led_pin, 0 );
+                            brightnesses[num] = jas;
+                            states[num] = 0;
+                        }
 
-				PRINTF( "Server forwarded %d bytes.\r\n", l_len );
-			}
-			if ( l_len < 0 )
-			{
-				// FreeRTOS_debug_printf( ( "FreeRTOS_recv: rc = %ld.\n", l_len ) );
-				// Probably '-FREERTOS_ERRNO_ENOTCONN', see FreeRTOS_IP.h
-				break;
-			}
-			if ( l_len == 0 )
-			{
-				PRINTF( "Recv timeout.\r\n" );
-				//FreeRTOS_setsockopt( l_sock_listen, 0, FREERTOS_SO_RCVTIMEO, &l_receive_tout, sizeof( l_receive_tout ) );
-			}
-		}
-		PRINTF( "Socket server replied %d times.\r\n", l_reply_count );
 
-		// Pause for a short while to ensure the network is not too	congested.
-		vTaskDelay( SOCKET_SRV_TOUT );
+                    }
+                }
+                l_len = FreeRTOS_send( l_sock_client, ( void * ) l_rx_buf, l_len, 0 );
 
-		// Close this socket before looping back to create another.
-		FreeRTOS_closesocket( l_sock_client );
-		l_sock_client = NULL;
-	}
+                PRINTF( "Server forwarded %d bytes.\r\n", l_len );
+            }
+            if ( l_len < 0 )
+            {
+                // FreeRTOS_debug_printf( ( "FreeRTOS_recv: rc = %ld.\n", l_len ) );
+                // Probably '-FREERTOS_ERRNO_ENOTCONN', see FreeRTOS_IP.h
+                break;
+            }
+            if ( l_len == 0 )
+            {
+                PRINTF( "Recv timeout.\r\n" );
+                //FreeRTOS_setsockopt( l_sock_listen, 0, FREERTOS_SO_RCVTIMEO, &l_receive_tout, sizeof( l_receive_tout ) );
+            }
+        }
+        PRINTF( "Socket server replied %d times.\r\n", l_reply_count );
+
+        // Pause for a short while to ensure the network is not too	congested.
+        vTaskDelay( SOCKET_SRV_TOUT );
+
+        // Close this socket before looping back to create another.
+        FreeRTOS_closesocket( l_sock_client );
+        l_sock_client = NULL;
+    }
 }
 
 void task_socket_cli( void *tp_arg )
 {
-	PRINTF( "Task socket client started. \r\n" );
+    PRINTF( "Task socket client started. \r\n" );
 
-	vTaskDelay( 500 );
+    vTaskDelay( 500 );
 
-   	Socket_t l_sock_server = FreeRTOS_socket( FREERTOS_AF_INET, FREERTOS_SOCK_STREAM, FREERTOS_IPPROTO_TCP );
-	struct freertos_sockaddr *lp_sever_addr = ( freertos_sockaddr * ) tp_arg;
-	BaseType_t l_res = FreeRTOS_connect( l_sock_server, lp_sever_addr, sizeof( freertos_sockaddr ) );
+    Socket_t l_sock_server = FreeRTOS_socket( FREERTOS_AF_INET, FREERTOS_SOCK_STREAM, FREERTOS_IPPROTO_TCP );
+    struct freertos_sockaddr *lp_sever_addr = ( freertos_sockaddr * ) tp_arg;
+    BaseType_t l_res = FreeRTOS_connect( l_sock_server, lp_sever_addr, sizeof( freertos_sockaddr ) );
 
-	if ( l_res == 0 )
-	{
-		PRINTF( "Connect to server %d.\r\n", l_res );
+    if ( l_res == 0 )
+    {
+        PRINTF( "Connect to server %d.\r\n", l_res );
 
-		for ( int i = 0; i < 10; i++ )
-		{
-			l_res = FreeRTOS_send( l_sock_server, "Hello\n", 6, 0 );
-			PRINTF( "send %d...\r\n", l_res );
-			if ( l_res < 0 ) break;
-			vTaskDelay( 500 );
-		}
-	}
-	else
-	{
-		PRINTF( "Unable to connect server!\r\n" );
-	}
+        for ( int i = 0; i < 10; i++ )
+        {
+            l_res = FreeRTOS_send( l_sock_server, "Hello\n", 6, 0 );
+            PRINTF( "send %d...\r\n", l_res );
+            if ( l_res < 0 ) break;
+            vTaskDelay( 500 );
+        }
+    }
+    else
+    {
+        PRINTF( "Unable to connect server!\r\n" );
+    }
 
-	FreeRTOS_closesocket( l_sock_server );
+    FreeRTOS_closesocket( l_sock_server );
 
-	vTaskDelete( NULL );
+    vTaskDelete( NULL );
 }
 
 
 // Callback from TCP stack - interface state changed
 void vApplicationIPNetworkEventHook( eIPCallbackEvent_t t_network_event )
 {
-	static BaseType_t s_task_already_created = pdFALSE;
-	static freertos_sockaddr s_server_addr;
-	s_server_addr.sin_port = FreeRTOS_htons( SOCKET_CLI_PORT );
-	s_server_addr.sin_addr = FreeRTOS_inet_addr_quick( 10, 0, 0, 1 );
+    static BaseType_t s_task_already_created = pdFALSE;
+    static freertos_sockaddr s_server_addr;
+    s_server_addr.sin_port = FreeRTOS_htons( SOCKET_CLI_PORT );
+    s_server_addr.sin_addr = FreeRTOS_inet_addr_quick( 10, 0, 0, 1 );
 
     // Both eNetworkUp and eNetworkDown events can be processed here.
     if ( t_network_event == eNetworkUp )
     {
-    	PRINTF( "Network interface UP.\r\n" );
+        PRINTF( "Network interface UP.\r\n" );
         // Create the tasks that use the TCP/IP stack if they have not already been created.
         if ( s_task_already_created == pdFALSE )
         {
-             // For convenience, tasks that use FreeRTOS+TCP can be created here
-             // to ensure they are not created before the network is usable.
-        	if ( xTaskCreate( task_socket_srv, TASK_NAME_SOCKET_SRV, configMINIMAL_STACK_SIZE + 1024,
-        			( void * ) SOCKET_SRV_PORT, configMAX_PRIORITIES - 1, NULL ) != pdPASS )
-        	{
-        		PRINTF( "Unable to create task %s.\r\n", TASK_NAME_SOCKET_SRV );
-        	}
-        	// Create task for socket client
-        	/*
-        	if ( xTaskCreate( task_socket_cli, TASK_NAME_SOCKET_CLI, configMINIMAL_STACK_SIZE + 1024,
-        			&s_server_addr, configMAX_PRIORITIES - 1, NULL ) != pdPASS )
-        	{
-        		PRINTF( "Unable to create task %s.\r\n", TASK_NAME_SOCKET_CLI );
-        	}
-        	 */
-        	s_task_already_created = pdTRUE;
+            uint32_t ulIPAddress, ulNetMask, ulGatewayAddress, ulDNSServerAddress;
+            char cBuffer[ 16 ];
+
+
+            /* The network is up and configured.  Print out the configuration
+            obtained from the DHCP server. */
+            FreeRTOS_GetAddressConfiguration( &ulIPAddress,
+                                              &ulNetMask,
+                                              &ulGatewayAddress,
+                                              &ulDNSServerAddress );
+
+            /* Convert the IP address to a string then print it out. */
+            FreeRTOS_inet_ntoa( ulIPAddress, cBuffer );
+            PRINTF( "IP Address: %srn\r\n", cBuffer );
+            // For convenience, tasks that use FreeRTOS+TCP can be created here
+            // to ensure they are not created before the network is usable.
+            if ( xTaskCreate( task_socket_srv, TASK_NAME_SOCKET_SRV, configMINIMAL_STACK_SIZE + 1024,
+                              ( void * ) SOCKET_SRV_PORT, configMAX_PRIORITIES - 1, NULL ) != pdPASS )
+            {
+                PRINTF( "Unable to create task %s.\r\n", TASK_NAME_SOCKET_SRV );
+            }
+
+
+            // Create task for socket client
+            /*
+            if ( xTaskCreate( task_socket_cli, TASK_NAME_SOCKET_CLI, configMINIMAL_STACK_SIZE + 1024,
+                    &s_server_addr, configMAX_PRIORITIES - 1, NULL ) != pdPASS )
+            {
+                PRINTF( "Unable to create task %s.\r\n", TASK_NAME_SOCKET_CLI );
+            }
+             */
+            s_task_already_created = pdTRUE;
         }
     }
 }
@@ -333,11 +393,11 @@ void vApplicationIPNetworkEventHook( eIPCallbackEvent_t t_network_event )
  */
 int main(void) {
 
-  	/* Init board hardware. */
+    /* Init board hardware. */
     BOARD_InitBootPins();
     BOARD_InitBootClocks();
     BOARD_InitBootPeripherals();
-  	/* Init FSL debug console. */
+    /* Init FSL debug console. */
     BOARD_InitDebugConsole();
 
     SYSMPU_Enable( SYSMPU, false );
@@ -347,40 +407,44 @@ int main(void) {
     // SET CORRECTLY MAC ADDRESS FOR USAGE IN LAB!
     //
     // Computer in lab use IP address 158.196.XXX.YYY.
-    // Set MAC to 5A FE C0 DE XXX YYY+21
+    // Set MAC to 5A FE C0 DE XXX YYY+20
     // IP address will be configured from DHCP
     //
-	uint8_t ucMAC[ ipMAC_ADDRESS_LENGTH_BYTES ] = { 0x5A, 0xFE, 0xC0, 0xDE, 0x00, 0x00 };
+    uint8_t ucMAC[ ipMAC_ADDRESS_LENGTH_BYTES ] = { 0x5A, 0xFE, 0xC0, 0xDE, 0x8E, 0x59 };
 
-   	uint8_t ucIPAddress[ ipIP_ADDRESS_LENGTH_BYTES ] = { 10, 0, 0, 10 };
-   	uint8_t ucIPMask[ ipIP_ADDRESS_LENGTH_BYTES ] = { 255, 255, 255, 0 };
-   	uint8_t ucIPGW[ ipIP_ADDRESS_LENGTH_BYTES ] = { 10, 0, 0, 1 };
+    uint8_t ucIPAddress[ ipIP_ADDRESS_LENGTH_BYTES ] = { 10, 0, 0, 10 };
+    uint8_t ucIPMask[ ipIP_ADDRESS_LENGTH_BYTES ] = { 255, 255, 255, 0 };
+    uint8_t ucIPGW[ ipIP_ADDRESS_LENGTH_BYTES ] = { 10, 0, 0, 1 };
 
-	FreeRTOS_IPInit( ucIPAddress,  ucIPMask,  ucIPGW,  NULL,  ucMAC );
+    if((FreeRTOS_IPInit( ucIPAddress,  ucIPMask,  ucIPGW,  NULL,  ucMAC )) == pdFAIL )
+        PRINTF("Initialization failed\r\n");
 
-	// Create tasks
-	if ( xTaskCreate(
-	    		task_led_pta_blink,
-	    		TASK_NAME_LED_PTA,
-				configMINIMAL_STACK_SIZE + 100,
-				NULL,
-				NORMAL_TASK_PRIORITY,
-				NULL ) != pdPASS )
-	    {
-	        PRINTF( "Unable to create task '%s'.\r\n", TASK_NAME_LED_PTA );
-	    }
-
-    if (xTaskCreate(
-            task_led_ptc_blink,
-            TASK_NAME_LED_PTC,
-            configMINIMAL_STACK_SIZE + 100,
+    // Create tasks
+    if ( xTaskCreate(
+            task_led_pta_blink,
+            TASK_NAME_LED_PTA,
+            configMINIMAL_STACK_SIZE,
             NULL,
-            NORMAL_TASK_PRIORITY,
-            NULL) != pdPASS) {
-        PRINTF("Unable to create task '%s'.\r\n", TASK_NAME_LED_PTC);
+            LOW_TASK_PRIORITY,
+            NULL ) != pdPASS )
+    {
+        PRINTF( "Unable to create task '%s'.\r\n", TASK_NAME_LED_PTA );
     }
 
-	vTaskStartScheduler();
+    if ( xTaskCreate(
+            task_led_ptc,
+            TASK_NAME_LED_PTC,
+            configMINIMAL_STACK_SIZE,
+            NULL,
+            LOW_TASK_PRIORITY,
+            NULL ) != pdPASS )
+    {
+        PRINTF( "Unable to create task '%s'.\r\n", TASK_NAME_LED_PTC );
+    }
+
+    PRINTF("TCPIP demo\r\n");
+
+    vTaskStartScheduler();
 
     while ( 1 );
 
