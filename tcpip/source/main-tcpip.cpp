@@ -69,6 +69,8 @@
 #define HIGH_TASK_PRIORITY 		(configMAX_PRIORITIES)
 
 #define TASK_NAME_LED_PTA		"led_pta"
+#define TASK_NAME_LED_PTC    "led_ptc"
+
 #define TASK_NAME_SOCKET_SRV	"socket_srv"
 #define TASK_NAME_SOCKET_CLI	"socket_cli"
 
@@ -136,6 +138,23 @@ void task_led_pta_blink( void *t_arg )
         // next LED
         l_inx++;
         l_inx %= LED_PTA_NUM;
+    }
+}
+
+void task_led_ptc_blink(void *t_arg) {
+    uint32_t l_inx = 0;
+
+    while (1) {
+        // Zapnutí LED diody
+        GPIO_PinWrite(g_led_ptc[l_inx].m_led_gpio, g_led_ptc[l_inx].m_led_pin, 1);
+        vTaskDelay(200 / portTICK_PERIOD_MS);
+
+        // Vypnutí LED diody
+        GPIO_PinWrite(g_led_ptc[l_inx].m_led_gpio, g_led_ptc[l_inx].m_led_pin, 0);
+
+        // Přechod na další LED diodu
+        l_inx++;
+        l_inx %= LED_PTC_NUM;
     }
 }
 
@@ -350,6 +369,16 @@ int main(void) {
 	    {
 	        PRINTF( "Unable to create task '%s'.\r\n", TASK_NAME_LED_PTA );
 	    }
+
+    if (xTaskCreate(
+            task_led_ptc_blink,
+            TASK_NAME_LED_PTC,
+            configMINIMAL_STACK_SIZE + 100,
+            NULL,
+            NORMAL_TASK_PRIORITY,
+            NULL) != pdPASS) {
+        PRINTF("Unable to create task '%s'.\r\n", TASK_NAME_LED_PTC);
+    }
 
 	vTaskStartScheduler();
 

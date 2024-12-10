@@ -102,8 +102,8 @@ TaskHandle_t l_handle_led_all_on = NULL;
 TaskHandle_t l_handle_led_all_off = NULL;
 
 
-volatile uint8_t brightness1 = 5;
-volatile uint8_t brightness2 = 5;
+volatile uint8_t brightness1 = 1;
+volatile uint8_t brightness2 = 1;
 
 uint32_t site = 0;
 
