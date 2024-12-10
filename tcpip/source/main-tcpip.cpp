@@ -46,7 +46,6 @@
 // PTB23	LED_PTB23_PIN  LED_PTB23_GPIO
 
 
-#include <stdio.h>
 #include "board.h"
 #include "peripherals.h"
 #include "pin_mux.h"
@@ -72,7 +71,6 @@
 #define TASK_NAME_LED_PTA		"led_pta"
 #define TASK_NAME_SOCKET_SRV	"socket_srv"
 #define TASK_NAME_SOCKET_CLI	"socket_cli"
-#define TASK_NAME_LED_PTC		"led ptc"
 
 #define SOCKET_SRV_TOUT			1000
 #define SOCKET_SRV_BUF_SIZE		256
@@ -113,7 +111,7 @@ LED_Data g_led_ptc[ LED_PTC_NUM ] =
 
 
 // Random number generator for TCP/IP stack
-BaseType_t xApplicationGetRandomNumber( uint32_t * tp_pul_number ) { return rand(); }
+BaseType_t xApplicationGetRandomNumber( uint32_t * tp_pul_number ) { return uxRand(); }
 
 
 // Some task stack overflow
@@ -141,37 +139,6 @@ void task_led_pta_blink( void *t_arg )
     }
 }
 
-int states[LED_PTC_NUM] = {0, 0, 0, 0, 0, 0, 0, 0};
-int brightnesses[LED_PTC_NUM] = {0, 0, 0, 0, 0, 0, 0, 0};
-int interval = 500;
-void task_led_ptc(void *t_arg)
-{
-    while(1)
-    {
-        for(int i = 0; i < LED_PTC_NUM; i++)
-        {
-            if(states[i] == 0)
-            {
-                GPIO_PinWrite( g_led_ptc[ i ].m_led_gpio, g_led_ptc[ i ].m_led_pin, 0 );
-                continue;
-            }
-
-            for(int k = 0; k < brightnesses[i]; k++)
-            {
-                GPIO_PinWrite( g_led_ptc[ i ].m_led_gpio, g_led_ptc[ i ].m_led_pin, 1 );
-            }
-
-            for(int j = 0; j < interval - brightnesses[i]; j++)
-            {
-                GPIO_PinWrite( g_led_ptc[ i ].m_led_gpio, g_led_ptc[ i ].m_led_pin, 0 );
-            }
-
-
-
-        }
-    }
-}
-
 
 // task socket server
 void task_socket_srv( void *tp_arg )
@@ -192,7 +159,7 @@ void task_socket_srv( void *tp_arg )
     struct freertos_sockaddr from;
     socklen_t fromSize = sizeof from;
     BaseType_t l_bind_result;
-    char l_rx_buf[ SOCKET_SRV_BUF_SIZE ]; /* Make sure the stack is large enough to hold these.  Turn on stack overflow checking during debug to be sure. */
+    int8_t l_rx_buf[ SOCKET_SRV_BUF_SIZE ]; /* Make sure the stack is large enough to hold these.  Turn on stack overflow checking during debug to be sure. */
 
     /* Create a socket. */
     l_sock_listen = FreeRTOS_socket( FREERTOS_AF_INET, FREERTOS_SOCK_STREAM, FREERTOS_IPPROTO_TCP );
@@ -246,37 +213,7 @@ void task_socket_srv( void *tp_arg )
             if( l_len > 0 )
             {
                 l_rx_buf[ l_len ] = 0;	// just for printing
-                PRINTF("%s\r\n", l_rx_buf);
-                if (strstr(l_rx_buf, "LED") != NULL) {
-                    int num = atoi(&l_rx_buf[4])-1;
-                    char jasB[4];
-                    jasB[0] = l_rx_buf[9];
-                    jasB[1] = l_rx_buf[10];
-                    jasB[2] = l_rx_buf[11];
-                    jasB[3] = 0;
-                    int jas = atoi(jasB);
-                    if (jas < 0) jas = 0;
-                    if (jas > 100) jas = 100;
-                    PRINTF("%s\r\n", jasB);
-                    PRINTF( "jas %d\r\n", jas );
-                    jas *= 5;
-                    if(num >= 0 && num < LED_PTC_NUM) {
-                        if(strstr(l_rx_buf, "ON") != NULL)
-                        {
-                            //GPIO_PinWrite( g_led_ptc[ num ].m_led_gpio, g_led_ptc[ num ].m_led_pin, 1 );
-                            states[num] = 1;
-                            brightnesses[num] = jas;
-                        }
 
-                        else if(strstr(l_rx_buf, "OFF") != NULL) {
-                            //GPIO_PinWrite( g_led_ptc[ num ].m_led_gpio, g_led_ptc[ num ].m_led_pin, 0 );
-                            brightnesses[num] = jas;
-                            states[num] = 0;
-                        }
-
-
-                    }
-                }
                 l_len = FreeRTOS_send( l_sock_client, ( void * ) l_rx_buf, l_len, 0 );
 
                 PRINTF( "Server forwarded %d bytes.\r\n", l_len );
@@ -352,20 +289,6 @@ void vApplicationIPNetworkEventHook( eIPCallbackEvent_t t_network_event )
         // Create the tasks that use the TCP/IP stack if they have not already been created.
         if ( s_task_already_created == pdFALSE )
         {
-            uint32_t ulIPAddress, ulNetMask, ulGatewayAddress, ulDNSServerAddress;
-            char cBuffer[ 16 ];
-
-
-            /* The network is up and configured.  Print out the configuration
-            obtained from the DHCP server. */
-            FreeRTOS_GetAddressConfiguration( &ulIPAddress,
-                                              &ulNetMask,
-                                              &ulGatewayAddress,
-                                              &ulDNSServerAddress );
-
-            /* Convert the IP address to a string then print it out. */
-            FreeRTOS_inet_ntoa( ulIPAddress, cBuffer );
-            PRINTF( "IP Address: %srn\r\n", cBuffer );
             // For convenience, tasks that use FreeRTOS+TCP can be created here
             // to ensure they are not created before the network is usable.
             if ( xTaskCreate( task_socket_srv, TASK_NAME_SOCKET_SRV, configMINIMAL_STACK_SIZE + 1024,
@@ -373,16 +296,12 @@ void vApplicationIPNetworkEventHook( eIPCallbackEvent_t t_network_event )
             {
                 PRINTF( "Unable to create task %s.\r\n", TASK_NAME_SOCKET_SRV );
             }
-
-
             // Create task for socket client
-            /*
             if ( xTaskCreate( task_socket_cli, TASK_NAME_SOCKET_CLI, configMINIMAL_STACK_SIZE + 1024,
                     &s_server_addr, configMAX_PRIORITIES - 1, NULL ) != pdPASS )
             {
                 PRINTF( "Unable to create task %s.\r\n", TASK_NAME_SOCKET_CLI );
             }
-             */
             s_task_already_created = pdTRUE;
         }
     }
@@ -407,42 +326,28 @@ int main(void) {
     // SET CORRECTLY MAC ADDRESS FOR USAGE IN LAB!
     //
     // Computer in lab use IP address 158.196.XXX.YYY.
-    // Set MAC to 5A FE C0 DE XXX YYY+20
+    // Set MAC to 5A FE C0 DE XXX YYY+21
     // IP address will be configured from DHCP
     //
-    uint8_t ucMAC[ ipMAC_ADDRESS_LENGTH_BYTES ] = { 0x5A, 0xFE, 0xC0, 0xDE, 0x8E, 0x59 };
+    uint8_t ucMAC[ ipMAC_ADDRESS_LENGTH_BYTES ] = { 0x5A, 0xFE, 0xC0, 0xDE, 142, 103 };
 
     uint8_t ucIPAddress[ ipIP_ADDRESS_LENGTH_BYTES ] = { 10, 0, 0, 10 };
     uint8_t ucIPMask[ ipIP_ADDRESS_LENGTH_BYTES ] = { 255, 255, 255, 0 };
     uint8_t ucIPGW[ ipIP_ADDRESS_LENGTH_BYTES ] = { 10, 0, 0, 1 };
 
-    if((FreeRTOS_IPInit( ucIPAddress,  ucIPMask,  ucIPGW,  NULL,  ucMAC )) == pdFAIL )
-        PRINTF("Initialization failed\r\n");
+    FreeRTOS_IPInit( ucIPAddress,  ucIPMask,  ucIPGW,  NULL,  ucMAC );
 
     // Create tasks
     if ( xTaskCreate(
             task_led_pta_blink,
             TASK_NAME_LED_PTA,
-            configMINIMAL_STACK_SIZE,
+            configMINIMAL_STACK_SIZE + 100,
             NULL,
-            LOW_TASK_PRIORITY,
+            NORMAL_TASK_PRIORITY,
             NULL ) != pdPASS )
     {
         PRINTF( "Unable to create task '%s'.\r\n", TASK_NAME_LED_PTA );
     }
-
-    if ( xTaskCreate(
-            task_led_ptc,
-            TASK_NAME_LED_PTC,
-            configMINIMAL_STACK_SIZE,
-            NULL,
-            LOW_TASK_PRIORITY,
-            NULL ) != pdPASS )
-    {
-        PRINTF( "Unable to create task '%s'.\r\n", TASK_NAME_LED_PTC );
-    }
-
-    PRINTF("TCPIP demo\r\n");
 
     vTaskStartScheduler();
 
