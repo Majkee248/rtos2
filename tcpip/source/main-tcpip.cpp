@@ -441,8 +441,7 @@ void msg() {
     };
 
     for (int i = 0; i < 4; i++) {
-        printf("%s\n", commands[i]);
-        fflush(stdout);
+        FreeRTOS_send(l_sock_client, (void *)commands[i], strlen(commands[i]) + 1, 0);
         vTaskDelay(5000 / portTICK_PERIOD_MS);
     }
 }
