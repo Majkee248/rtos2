@@ -1,9 +1,3 @@
-(bez předmětu)
-Fotografie kontaktu
-Odesílatel	Jan Piperek
-        Adresát	Jan.piperek St
-Datum	Dnes 13:01
-Shrnutí Hlavičky
 // **************************************************************************
 //
 //               Demo program for OSY labs
@@ -82,11 +76,21 @@ Shrnutí Hlavičky
 #define TASK_NAME_SET_ONOFF    "set_onoff"
 #define TASK_NAME_MONITOR_BUTTONS "monitor_buttons"
 #define TASK_NAME_PRINT_BUTTONS   "print_buttons"
+#define TASK_NAME_BLINKER          "blinker"
 
 typedef enum { LEFT, RIGHT } Direction_t;
 
-xSocket_t l_sock_client;
+// Define the BlinkCommand structure
+typedef struct {
+    Direction_t direction;
+    int num_leds;
+} BlinkCommand_t;
 
+// Declare the socket and queue handles
+xSocket_t l_sock_client;
+xQueueHandle blink_command_queue;
+
+// Constants
 #define SOCKET_SRV_TOUT            1000
 #define SOCKET_SRV_BUF_SIZE        256
 #define SOCKET_SRV_PORT            3333
@@ -155,13 +159,16 @@ CUSTOM_BUT but_bool[BUT_NUM] = {
         {false, false, false, SW_PTC12_PIN, SW_PTC12_GPIO}
 };
 
+// Function prototypes
 void task_led_pta_blink( void *t_arg );
 void task_socket_srv( void *tp_arg );
 void task_socket_cli( void *tp_arg );
 void task_set_onoff( void *tp_arg );
 void task_monitor_buttons(void *tp_arg);
 void task_print_buttons(void *tp_arg);
+void task_blinker(void *params);
 
+// Application-specific functions
 BaseType_t xApplicationGetRandomNumber( uint32_t * tp_pul_number ) { return uxRand(); }
 
 void vApplicationStackOverflowHook( xTaskHandle *tp_task_handle, signed portCHAR *tp_task_name )
@@ -169,6 +176,7 @@ void vApplicationStackOverflowHook( xTaskHandle *tp_task_handle, signed portCHAR
 PRINTF( "STACK PROBLEM %s.\r\n", tp_task_name );
 }
 
+// LED PTA blink task
 void task_led_pta_blink( void *t_arg )
 {
     uint32_t l_inx = 0;
@@ -186,6 +194,7 @@ void task_led_pta_blink( void *t_arg )
     }
 }
 
+// Command parser
 bool parse_led_command(const char* input, Direction_t* dir, int* num) {
 
     char led_str[] = "LED";
@@ -208,30 +217,38 @@ bool parse_led_command(const char* input, Direction_t* dir, int* num) {
     while (input[i] == ' ') i++;
 
 
+    // Check if direction is specified
     if (input[i] == 'L' || input[i] == 'l') {
         *dir = LEFT;
-    } else if (input[i] == 'R' || input[i] == 'r') {
-        *dir = RIGHT;
-    } else {
-        return false;
+        i++;
+        while (input[i] == ' ') i++;
     }
-    i++;
+    else if (input[i] == 'R' || input[i] == 'r') {
+        *dir = RIGHT;
+        i++;
+        while (input[i] == ' ') i++;
+    }
+    else {
+        // Default direction
+        *dir = LEFT;
+    }
 
-    while (input[i] == ' ') i++;
-
+    // Parse number of LEDs
     if (input[i] >= '0' && input[i] <= '9') {
         *num = 0;
         while (input[i] >= '0' && input[i] <= '9') {
             *num = (*num) * 10 + (input[i] - '0');
             i++;
         }
-    } else {
+    }
+    else {
         return false;
     }
 
     return true;
 }
 
+// Socket server task
 void task_socket_srv( void *tp_arg )
 {
     PRINTF( "Task socket server started.\r\n" );
@@ -307,23 +324,12 @@ void task_socket_srv( void *tp_arg )
                 if (parse_led_command((char *)l_rx_buf, &direction, &num_leds)) {
                     PRINTF("Parsed command: Direction=%s, Number=%d\r\n", direction == LEFT ? "LEFT" : "RIGHT", num_leds);
 
-                    if (num_leds >= 0 && num_leds <= LED_PTC_NUM) {
-                        if (direction == LEFT) {
-                            for (int i = 0; i < num_leds; i++) {
-                                ptc_bool[i].state = true;
-                                PRINTF("LED PTC%d ON\n", i);
-                            }
-                            for (int i = num_leds; i < LED_PTC_NUM; i++) {
-                                ptc_bool[i].state = false;
-                            }
-                        } else if (direction == RIGHT) {
-                            for (int i = 0; i < num_leds; i++) {
-                                ptc_bool[LED_PTC_NUM - 1 - i].state = true;
-                                PRINTF("LED PTC%d ON\n", LED_PTC_NUM - 1 - i);
-                            }
-                            for (int i = 0; i < LED_PTC_NUM - num_leds; i++) {
-                                ptc_bool[i].state = false;
-                            }
+                    if (num_leds > 0 && num_leds <= LED_PTC_NUM) {
+                        BlinkCommand_t cmd;
+                        cmd.direction = direction;
+                        cmd.num_leds = num_leds;
+                        if(xQueueSend(blink_command_queue, &cmd, pdMS_TO_TICKS(100)) != pdPASS){
+                            PRINTF("Failed to enqueue blink command.\r\n");
                         }
                     } else {
                         PRINTF("Invalid number of LEDs: %d\n", num_leds);
@@ -332,6 +338,7 @@ void task_socket_srv( void *tp_arg )
                     PRINTF("Invalid command format\n");
                 }
 
+                // Echo back the received command
                 l_len = FreeRTOS_send( l_sock_client, ( void * ) l_rx_buf, strlen((char*)l_rx_buf), 0 );
 
                 PRINTF( "Server forwarded %d bytes.\r\n", l_len );
@@ -350,16 +357,14 @@ void task_socket_srv( void *tp_arg )
         }
         PRINTF( "Socket server replied %d times.\r\n", l_reply_count );
 
-
         vTaskDelay( SOCKET_SRV_TOUT / portTICK_PERIOD_MS );
-
 
         FreeRTOS_closesocket( l_sock_client );
         l_sock_client = FREERTOS_INVALID_SOCKET;
     }
 }
 
-
+// Socket client task (optional)
 void task_socket_cli( void *tp_arg )
 {
     PRINTF( "Task socket client started. \r\n" );
@@ -456,7 +461,15 @@ void task_monitor_buttons(void *tp_arg) {
                 but_bool[i].change = true;
                 but_bool[i].released = !but_bool[i].state;
 
-                // No additional code needed here
+
+                if(i == 0 && but_bool[i].state){
+                    BlinkCommand_t cmd;
+                    cmd.direction = LEFT;
+                    cmd.num_leds = 3;
+                    if(xQueueSend(blink_command_queue, &cmd, pdMS_TO_TICKS(100)) != pdPASS){
+                        PRINTF("Failed to enqueue blink command from button.\r\n");
+                    }
+                }
 
             } else {
                 but_bool[i].change = false;
@@ -466,6 +479,7 @@ void task_monitor_buttons(void *tp_arg) {
         vTaskDelay(1 / portTICK_PERIOD_MS);
     }
 }
+
 
 void task_print_buttons(void *tp_arg) {
     char msg[16];
@@ -493,6 +507,38 @@ void task_print_buttons(void *tp_arg) {
 }
 
 
+void task_blinker(void *params) {
+    BlinkCommand_t cmd;
+    while(1) {
+        if (xQueueReceive(blink_command_queue, &cmd, portMAX_DELAY)) {
+            for(int cycle = 0; cycle < 3; cycle++) {
+
+                for(int i = 0; i < cmd.num_leds; i++) {
+                    int led_index = (cmd.direction == LEFT) ? i : (LED_PTC_NUM - 1 - i);
+                    if(led_index < LED_PTC_NUM && led_index >=0){
+                        ptc_bool[led_index].state = true;
+                        PRINTF("LED PTC%d ON\r\n", led_index);
+                        vTaskDelay(200 / portTICK_PERIOD_MS);
+                    }
+                }
+
+                vTaskDelay(200 / portTICK_PERIOD_MS);
+
+                for(int i = 0; i < cmd.num_leds; i++) {
+                    int led_index = (cmd.direction == LEFT) ? i : (LED_PTC_NUM - 1 - i);
+                    if(led_index < LED_PTC_NUM && led_index >=0){
+                        ptc_bool[led_index].state = false;
+                        PRINTF("LED PTC%d OFF\r\n", led_index);
+                        vTaskDelay(200 / portTICK_PERIOD_MS);
+                    }
+                }
+                vTaskDelay(200 / portTICK_PERIOD_MS);
+            }
+        }
+    }
+}
+
+// Main function
 int main(void) {
 
     /* Init board hardware. */
@@ -520,7 +566,25 @@ int main(void) {
 
     FreeRTOS_IPInit(ucIPAddress, ucIPMask, ucIPGW, NULL, ucMAC);
 
-    // Create existing tasks
+    // Vytvoření fronty pro příkazy blikání
+    blink_command_queue = xQueueCreate(10, sizeof(BlinkCommand_t));
+    if (blink_command_queue == NULL) {
+        PRINTF("Failed to create blink command queue.\r\n");
+    }
+
+    // Vytvoření úlohy blinker
+    if (xTaskCreate(
+            task_blinker,
+            TASK_NAME_BLINKER,
+            configMINIMAL_STACK_SIZE + 500,
+            NULL,
+            HIGH_TASK_PRIORITY,
+            NULL) != pdPASS )
+    {
+        PRINTF("Unable to create task '%s'.\r\n", TASK_NAME_BLINKER );
+    }
+
+    // Vytvoření ostatních úloh
     if (xTaskCreate(
             task_led_pta_blink,
             TASK_NAME_LED_PTA,
