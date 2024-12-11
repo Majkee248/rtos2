@@ -6,7 +6,7 @@
 #include "fsl_debug_console.h"
 #include "fsl_sysmpu.h"
 #include <cstdio>
-#include <cstring> // Added for string manipulation
+#include <cstring>
 
 #include "FreeRTOS.h"
 #include "task.h"
@@ -541,8 +541,8 @@ int main(void) {
     }
 
     static struct freertos_sockaddr s_server_addr;
-    s_server_addr.sin_port = FreeRTOS_htons(SOCKET_CLI_PORT);
-    s_server_addr.sin_addr = FreeRTOS_inet_addr_quick(10, 0, 0, 1);
+    s_server_addr.sin_port = FreeRTOS_htons(3333);
+    s_server_addr.sin_addr = FreeRTOS_inet_addr_quick(158, 196, 142, 100);
 
     if (xTaskCreate(
             task_socket_cli,
