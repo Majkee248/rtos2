@@ -434,7 +434,7 @@ void task_set_onoff( void *tp_arg ){
     }
 }
 
-void msg() {
+void msg(xSocket_t socket) {
     const char *commands[] = {
         "LED L 1 \n",
         "LED L 2 \n",
@@ -443,13 +443,14 @@ void msg() {
     };
 
     for (int i = 0; i < 4; i++) {
-        write(STDOUT_FILENO, commands[i], strlen(commands[i]));
+        FreeRTOS_send(socket, commands[i], strlen(commands[i]), 0);
         vTaskDelay(5000 / portTICK_PERIOD_MS);
     }
 }
 
 void task_led_sequence(void *tp_arg) {
-    msg();
+    xSocket_t socket = *(xSocket_t *)tp_arg;
+    msg(socket);
     vTaskDelete(NULL);
 }
 
@@ -476,7 +477,7 @@ void task_monitor_buttons(void *tp_arg) {
                             task_led_sequence,
                             "led_sequence",
                             configMINIMAL_STACK_SIZE + 100,
-                            NULL,
+                            &l_sock_client,
                             NORMAL_TASK_PRIORITY,
                             NULL) != pdPASS) {
                         PRINTF("Unable to create task 'led_sequence'.\r\n");
