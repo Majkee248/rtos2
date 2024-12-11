@@ -99,6 +99,7 @@ CUSTOM_BUT but_bool[BUT_NUM] = {
 
 const char* blink_msg = "LED L0, LED L1, LED L2, LED L3";
 SemaphoreHandle_t blink_semaphore;
+volatile Direction_t blink_direction;
 
 void task_led_pta_blink( void *t_arg );
 void task_socket_srv( void *tp_arg );
@@ -302,6 +303,11 @@ void task_monitor_buttons(void *tp_arg) {
                 but_bool[i].change = true;
                 but_bool[i].released = !but_bool[i].state;
                 if (i == 0 && but_bool[i].change && but_bool[i].state) {
+                    blink_direction = LEFT;
+                    xSemaphoreGive(blink_semaphore);
+                }
+                if (i == 1 && but_bool[i].change && but_bool[i].state) {
+                    blink_direction = RIGHT;
                     xSemaphoreGive(blink_semaphore);
                 }
             } else {
@@ -352,6 +358,13 @@ void task_blinker(void *tp_arg) {
                     }
                 }
                 ptr++;
+            }
+            if (blink_direction == RIGHT) {
+                for(int i = 0; i < count / 2; i++) {
+                    int temp = led_indices[i];
+                    led_indices[i] = led_indices[count - i - 1];
+                    led_indices[count - i - 1] = temp;
+                }
             }
             for(int repeat = 0; repeat < 3; repeat++) {
                 for(int i = 0; i < count; i++) {
