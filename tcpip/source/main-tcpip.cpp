@@ -397,7 +397,6 @@ void task_socket_cli( void *tp_arg )
     vTaskDelete( NULL );
 }
 
-// Callback from TCP stack - interface state changed
 void vApplicationIPNetworkEventHook( eIPCallbackEvent_t t_network_event )
 {
     static BaseType_t s_task_already_created = pdFALSE;
@@ -405,14 +404,11 @@ void vApplicationIPNetworkEventHook( eIPCallbackEvent_t t_network_event )
     s_server_addr.sin_port = FreeRTOS_htons( SOCKET_CLI_PORT );
     s_server_addr.sin_addr = FreeRTOS_inet_addr_quick( 10, 0, 0, 1 );
 
-    // Handle network up event
     if ( t_network_event == eNetworkUp )
     {
         PRINTF( "Network interface UP.\r\n" );
-        // Create the tasks that use the TCP/IP stack if they have not already been created.
         if ( s_task_already_created == pdFALSE )
         {
-            // Create socket server task
             if ( xTaskCreate( task_socket_srv, TASK_NAME_SOCKET_SRV, configMINIMAL_STACK_SIZE + 1024,
                               ( void * ) SOCKET_SRV_PORT, configMAX_PRIORITIES - 1, NULL ) != pdPASS )
             {
@@ -514,7 +510,7 @@ void task_blinker(void *params) {
             for(int cycle = 0; cycle < 3; cycle++) {
 
                 for(int i = 0; i < cmd.num_leds; i++) {
-                    int led_index = (cmd.direction == LEFT) ? i : (LED_PTC_NUM - 1 - i);
+                    int led_index = (cmd.direction == LEFT) ? i : (LED_PTC_NUM  - i);
                     if(led_index < LED_PTC_NUM && led_index >=0){
                         ptc_bool[led_index].state = true;
                         PRINTF("LED PTC%d ON\r\n", led_index);
@@ -538,7 +534,6 @@ void task_blinker(void *params) {
     }
 }
 
-// Main function
 int main(void) {
 
     /* Init board hardware. */
