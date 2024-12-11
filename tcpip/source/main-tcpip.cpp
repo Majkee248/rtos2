@@ -24,11 +24,11 @@
 #define TASK_NAME_SET_ONOFF    "set_onoff"
 #define TASK_NAME_MONITOR_BUTTONS "monitor_buttons"
 #define TASK_NAME_PRINT_BUTTONS   "print_buttons"
-
+#define TASK_NAME_BLINK_PTC9       "blink_ptc9"
+#define BLINK_REPEAT_COUNT         4
+#define BLINK_DELAY_MS             500
 typedef enum { LEFT, RIGHT } Direction_t;
-
 xSocket_t l_sock_client;
-
 #define SOCKET_SRV_TOUT            1000
 #define SOCKET_SRV_BUF_SIZE        256
 #define SOCKET_SRV_PORT            3333
@@ -37,21 +37,16 @@ xSocket_t l_sock_client;
 #define LED_PTA_NUM     2
 #define LED_PTC_NUM        8
 #define LED_PTB_NUM        9
-#define ipMAC_ADDRESS_LENGTH_BYTES 6
-#define ipIP_ADDRESS_LENGTH_BYTES 4
-
 struct LED_Data
 {
     uint32_t pin;
     GPIO_Type *gpio;
 };
-
 LED_Data pta[ LED_PTA_NUM ] =
         {
                 { LED_PTA1_PIN, LED_PTA1_GPIO },
                 { LED_PTA2_PIN, LED_PTA2_GPIO },
         };
-
 LED_Data ptc[ LED_PTC_NUM ] =
         {
                 { LED_PTC0_PIN, LED_PTC0_GPIO },
@@ -63,13 +58,11 @@ LED_Data ptc[ LED_PTC_NUM ] =
                 { LED_PTC7_PIN, LED_PTC7_GPIO },
                 { LED_PTC8_PIN, LED_PTC8_GPIO },
         };
-
 struct CUSTOM_LED {
     bool state;
     uint32_t pin;
     GPIO_Type *gpio;
 };
-
 CUSTOM_LED ptc_bool[ LED_PTC_NUM ] =
         {
                 { false, LED_PTC0_PIN, LED_PTC0_GPIO },
@@ -81,7 +74,6 @@ CUSTOM_LED ptc_bool[ LED_PTC_NUM ] =
                 { false, LED_PTC7_PIN, LED_PTC7_GPIO },
                 { false, LED_PTC8_PIN, LED_PTC8_GPIO },
         };
-
 struct CUSTOM_BUT {
     bool state;
     bool change;
@@ -89,32 +81,25 @@ struct CUSTOM_BUT {
     unsigned int pin;
     GPIO_Type *gpio;
 };
-
 CUSTOM_BUT but_bool[BUT_NUM] = {
         {false, false, false, SW_PTC9_PIN, SW_PTC9_GPIO},
         {false, false, false, SW_PTC10_PIN, SW_PTC10_GPIO},
         {false, false, false, SW_PTC11_PIN, SW_PTC11_GPIO},
         {false, false, false, SW_PTC12_PIN, SW_PTC12_GPIO}
 };
-
-const char* blink_msg = "LED L0, LED L1, LED L2, LED L3";
-SemaphoreHandle_t blink_semaphore;
-volatile Direction_t blink_direction;
-
 void task_led_pta_blink( void *t_arg );
 void task_socket_srv( void *tp_arg );
 void task_socket_cli( void *tp_arg );
 void task_set_onoff( void *tp_arg );
 void task_monitor_buttons(void *tp_arg);
 void task_print_buttons(void *tp_arg);
-void task_blinker(void *tp_arg);
-
+void task_blink_ptc9(void *tp_arg);
+#define PTC9_INDEX 0
+xTaskHandle blink_task_handle;
 BaseType_t xApplicationGetRandomNumber( uint32_t * tp_pul_number ) { return uxRand(); }
-
 void vApplicationStackOverflowHook( xTaskHandle *tp_task_handle, signed portCHAR *tp_task_name )
 {
 }
-
 bool parse_led_command(const char* input, Direction_t* dir, int* num) {
     char led_str[] = "LED";
     int i = 0;
@@ -148,22 +133,9 @@ bool parse_led_command(const char* input, Direction_t* dir, int* num) {
     }
     return true;
 }
-
-void task_led_pta_blink( void *t_arg )
-{
-    uint32_t l_inx = 0;
-    while ( 1 )
-    {
-        GPIO_PinWrite( pta[ l_inx ].gpio, pta[ l_inx ].pin, 1 );
-        vTaskDelay( 200 / portTICK_PERIOD_MS );
-        GPIO_PinWrite( pta[ l_inx ].gpio, pta[ l_inx ].pin, 0 );
-        l_inx++;
-        l_inx %= LED_PTA_NUM;
-    }
-}
-
 void task_socket_srv( void *tp_arg )
 {
+    PRINTF( "Task socket server started.\r\n" );
     TickType_t l_receive_tout = 25000 / portTICK_PERIOD_MS;
     int l_port = ( int ) tp_arg;
     struct freertos_sockaddr l_srv_address;
@@ -188,6 +160,7 @@ void task_socket_srv( void *tp_arg )
     l_win_props.lRxWinSize   = 2;
     FreeRTOS_setsockopt( l_sock_listen, 0, FREERTOS_SO_WIN_PROPERTIES, ( void * ) &l_win_props, sizeof( l_win_props ) );
     FreeRTOS_listen( l_sock_listen, 2 );
+    PRINTF( "Socket server started, listening on port %u.\r\n", FreeRTOS_ntohs( l_srv_address.sin_port ) );
     for( ;; )
     {
         uint32_t l_reply_count = 0;
@@ -197,6 +170,7 @@ void task_socket_srv( void *tp_arg )
         } while ( l_sock_client == FREERTOS_INVALID_SOCKET );
         if ( l_sock_client == FREERTOS_INVALID_SOCKET )
         {
+            PRINTF( "Invalid socket from ACCEPT!\r\n" );
             continue;
         }
         vTaskDelay( 100 / portTICK_PERIOD_MS );
@@ -207,13 +181,16 @@ void task_socket_srv( void *tp_arg )
             if( l_len > 0 )
             {
                 l_rx_buf[ l_len ] = '\0';
+                PRINTF( "Received: %s\r\n", l_rx_buf );
                 Direction_t direction;
                 int num_leds;
                 if (parse_led_command((char *)l_rx_buf, &direction, &num_leds)) {
+                    PRINTF("Parsed command: Direction=%s, Number=%d\r\n", direction == LEFT ? "LEFT" : "RIGHT", num_leds);
                     if (num_leds >= 0 && num_leds <= LED_PTC_NUM) {
                         if (direction == LEFT) {
                             for (int i = 0; i < num_leds; i++) {
                                 ptc_bool[i].state = true;
+                                PRINTF("LED PTC%d ON\n", i);
                             }
                             for (int i = num_leds; i < LED_PTC_NUM; i++) {
                                 ptc_bool[i].state = false;
@@ -221,45 +198,63 @@ void task_socket_srv( void *tp_arg )
                         } else if (direction == RIGHT) {
                             for (int i = 0; i < num_leds; i++) {
                                 ptc_bool[LED_PTC_NUM - 1 - i].state = true;
+                                PRINTF("LED PTC%d ON\n", LED_PTC_NUM - 1 - i);
                             }
                             for (int i = 0; i < LED_PTC_NUM - num_leds; i++) {
                                 ptc_bool[i].state = false;
                             }
                         }
+                    } else {
+                        PRINTF("Invalid number of LEDs: %d\n", num_leds);
                     }
+                } else {
+                    PRINTF("Invalid command format\n");
                 }
                 l_len = FreeRTOS_send( l_sock_client, ( void * ) l_rx_buf, strlen((char*)l_rx_buf), 0 );
+                PRINTF( "Server forwarded %d bytes.\r\n", l_len );
             }
-            if ( l_len <= 0 )
+            if ( l_len < 0 )
             {
+                PRINTF( "FreeRTOS_recv returned error: %ld.\r\n", l_len );
+                break;
+            }
+            if ( l_len == 0 )
+            {
+                PRINTF( "Recv timeout.\r\n" );
                 break;
             }
         }
+        PRINTF( "Socket server replied %d times.\r\n", l_reply_count );
         vTaskDelay( SOCKET_SRV_TOUT / portTICK_PERIOD_MS );
         FreeRTOS_closesocket( l_sock_client );
         l_sock_client = FREERTOS_INVALID_SOCKET;
     }
 }
-
 void task_socket_cli( void *tp_arg )
 {
+    PRINTF( "Task socket client started. \r\n" );
     vTaskDelay( 500 / portTICK_PERIOD_MS );
     Socket_t l_sock_server = FreeRTOS_socket( FREERTOS_AF_INET, FREERTOS_SOCK_STREAM, FREERTOS_IPPROTO_TCP );
     struct freertos_sockaddr *lp_sever_addr = ( freertos_sockaddr * ) tp_arg;
     BaseType_t l_res = FreeRTOS_connect( l_sock_server, lp_sever_addr, sizeof( freertos_sockaddr ) );
     if ( l_res == 0 )
     {
+        PRINTF( "Connected to server.\r\n" );
         for ( int i = 0; i < 10; i++ )
         {
             l_res = FreeRTOS_send( l_sock_server, "Hello\n", 6, 0 );
+            PRINTF( "Sent %d bytes.\r\n", l_res );
             if ( l_res < 0 ) break;
             vTaskDelay( 500 / portTICK_PERIOD_MS );
         }
     }
+    else
+    {
+        PRINTF( "Unable to connect to server!\r\n" );
+    }
     FreeRTOS_closesocket( l_sock_server );
     vTaskDelete( NULL );
 }
-
 void vApplicationIPNetworkEventHook( eIPCallbackEvent_t t_network_event )
 {
     static BaseType_t s_task_already_created = pdFALSE;
@@ -268,26 +263,26 @@ void vApplicationIPNetworkEventHook( eIPCallbackEvent_t t_network_event )
     s_server_addr.sin_addr = FreeRTOS_inet_addr_quick( 10, 0, 0, 1 );
     if ( t_network_event == eNetworkUp )
     {
+        PRINTF( "Network interface UP.\r\n" );
         if ( s_task_already_created == pdFALSE )
         {
             if ( xTaskCreate( task_socket_srv, TASK_NAME_SOCKET_SRV, configMINIMAL_STACK_SIZE + 1024,
                               ( void * ) SOCKET_SRV_PORT, configMAX_PRIORITIES - 1, NULL ) != pdPASS )
             {
+                PRINTF( "Unable to create task %s.\r\n", TASK_NAME_SOCKET_SRV );
             }
             s_task_already_created = pdTRUE;
         }
     }
 }
-
-void task_set_onoff(void *tp_arg) {
+void task_set_onoff( void *tp_arg ){
     while(1) {
         for(int i = 0; i < LED_PTC_NUM; i++) {
-            GPIO_PinWrite(ptc_bool[i].gpio, ptc_bool[i].pin, ptc_bool[i].state);
+            GPIO_PinWrite( ptc_bool[ i ].gpio, ptc_bool[i].pin, ptc_bool[i].state );
         }
-        vTaskDelay(5 / portTICK_PERIOD_MS);
+        vTaskDelay( 5 / portTICK_PERIOD_MS );
     }
 }
-
 void task_monitor_buttons(void *tp_arg) {
     for (int i = 0; i < BUT_NUM; i++) {
         but_bool[i].change = false;
@@ -302,14 +297,6 @@ void task_monitor_buttons(void *tp_arg) {
             if (but_bool[i].state != prev_state) {
                 but_bool[i].change = true;
                 but_bool[i].released = !but_bool[i].state;
-                if (i == 0 && but_bool[i].change && but_bool[i].state) {
-                    blink_direction = LEFT;
-                    xSemaphoreGive(blink_semaphore);
-                }
-                if (i == 1 && but_bool[i].change && but_bool[i].state) {
-                    blink_direction = RIGHT;
-                    xSemaphoreGive(blink_semaphore);
-                }
             } else {
                 but_bool[i].change = false;
             }
@@ -317,7 +304,6 @@ void task_monitor_buttons(void *tp_arg) {
         vTaskDelay(10 / portTICK_PERIOD_MS);
     }
 }
-
 void task_print_buttons(void *tp_arg) {
     bool enter = false;
     char msg[64];
@@ -334,73 +320,51 @@ void task_print_buttons(void *tp_arg) {
         if (enter) {
             if(l_sock_client != FREERTOS_INVALID_SOCKET){
                 FreeRTOS_send(l_sock_client, (void *)msg, strlen(msg) + 1, 0);
+                PRINTF("Sent Button States: %s", msg);
             }
             enter = false;
         }
         vTaskDelay(1 / portTICK_PERIOD_MS);
     }
 }
-
-void task_blinker(void *tp_arg) {
-    while (1) {
-        if (xSemaphoreTake(blink_semaphore, portMAX_DELAY)) {
-            int led_indices[LED_PTC_NUM];
-            int count = 0;
-            const char* ptr = blink_msg;
-            while (*ptr && count < LED_PTC_NUM) {
-                if (*ptr == 'L' || *ptr == 'l') {
-                    ptr++;
-                    if (*ptr >= '0' && *ptr <= '9') {
-                        int led_num = *ptr - '0';
-                        if (led_num >= 0 && led_num < LED_PTC_NUM) {
-                            led_indices[count++] = led_num;
-                        }
-                    }
+void task_blink_ptc9(void *tp_arg)
+{
+    while (1)
+    {
+        if (but_bool[PTC9_INDEX].change && but_bool[PTC9_INDEX].state)
+        {
+            PRINTF("PTC9 pressed. Starting blink pattern.\r\n");
+            for (int repeat = 0; repeat < BLINK_REPEAT_COUNT; repeat++)
+            {
+                for (int i = 0; i < LED_PTC_NUM; i++)
+                {
+                    ptc_bool[i].state = true;
+                    PRINTF("LED PTC%d ON\n", i);
+                    vTaskDelay(BLINK_DELAY_MS / portTICK_PERIOD_MS);
                 }
-                ptr++;
-            }
-            if (blink_direction == RIGHT) {
-                for(int i = 0; i < count / 2; i++) {
-                    int temp = led_indices[i];
-                    led_indices[i] = led_indices[count - i - 1];
-                    led_indices[count - i - 1] = temp;
+                for (int i = 0; i < LED_PTC_NUM; i++)
+                {
+                    ptc_bool[i].state = false;
                 }
+                vTaskDelay(BLINK_DELAY_MS / portTICK_PERIOD_MS);
             }
-            for(int repeat = 0; repeat < 3; repeat++) {
-                for(int i = 0; i < count; i++) {
-                    int led = led_indices[i];
-                    ptc_bool[led].state = true;
-                    vTaskDelay(200 / portTICK_PERIOD_MS);
-                }
-                for(int i = 0; i < count; i++) {
-                    int led = led_indices[i];
-                    ptc_bool[led].state = false;
-                    vTaskDelay(200 / portTICK_PERIOD_MS);
-                }
-            }
-            for(int i = 0; i < count; i++) {
-                int led = led_indices[i];
-                ptc_bool[led].state = true;
-            }
+            PRINTF("Blink pattern completed.\r\n");
         }
+        vTaskDelay(100 / portTICK_PERIOD_MS);
     }
 }
-
 int main(void) {
     BOARD_InitBootPins();
     BOARD_InitBootClocks();
     BOARD_InitBootPeripherals();
     BOARD_InitDebugConsole();
     SYSMPU_Enable(SYSMPU, false);
+    PRINTF("FreeRTOS+TCP with Left/Right LED Control started.\r\n");
     uint8_t ucMAC[ipMAC_ADDRESS_LENGTH_BYTES] = { 0x5A, 0xFE, 0xC0, 0xDE, 142, 100 };
     uint8_t ucIPAddress[ipIP_ADDRESS_LENGTH_BYTES] = { 10, 0, 0, 10 };
     uint8_t ucIPMask[ipIP_ADDRESS_LENGTH_BYTES] = { 255, 255, 255, 0 };
     uint8_t ucIPGW[ipIP_ADDRESS_LENGTH_BYTES] = { 10, 0, 0, 1 };
     FreeRTOS_IPInit(ucIPAddress, ucIPMask, ucIPGW, NULL, ucMAC);
-    blink_semaphore = xSemaphoreCreateBinary();
-    if (blink_semaphore == NULL) {
-        while(1);
-    }
     if (xTaskCreate(
             task_led_pta_blink,
             TASK_NAME_LED_PTA,
@@ -409,6 +373,7 @@ int main(void) {
             NORMAL_TASK_PRIORITY,
             NULL) != pdPASS )
     {
+        PRINTF("Unable to create task '%s'.\r\n", TASK_NAME_LED_PTA );
     }
     if (xTaskCreate(
             task_set_onoff,
@@ -418,6 +383,7 @@ int main(void) {
             NORMAL_TASK_PRIORITY,
             NULL) != pdPASS )
     {
+        PRINTF("Unable to create task '%s'.\r\n", TASK_NAME_SET_ONOFF );
     }
     if (xTaskCreate(
             task_monitor_buttons,
@@ -427,6 +393,7 @@ int main(void) {
             NORMAL_TASK_PRIORITY,
             NULL) != pdPASS )
     {
+        PRINTF("Unable to create task '%s'.\r\n", TASK_NAME_MONITOR_BUTTONS );
     }
     if (xTaskCreate(
             task_print_buttons,
@@ -436,15 +403,17 @@ int main(void) {
             NORMAL_TASK_PRIORITY,
             NULL) != pdPASS )
     {
+        PRINTF("Unable to create task '%s'.\r\n", TASK_NAME_PRINT_BUTTONS );
     }
     if (xTaskCreate(
-            task_blinker,
-            "blink_task",
-            configMINIMAL_STACK_SIZE + 256,
+            task_blink_ptc9,
+            TASK_NAME_BLINK_PTC9,
+            configMINIMAL_STACK_SIZE + 200,
             NULL,
             NORMAL_TASK_PRIORITY,
             NULL) != pdPASS )
     {
+        PRINTF("Unable to create task '%s'.\r\n", TASK_NAME_BLINK_PTC9 );
     }
     vTaskStartScheduler();
     while (1);
