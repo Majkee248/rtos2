@@ -433,25 +433,22 @@ void task_set_onoff( void *tp_arg ){
 }
 
 void task_led_sequence(void *tp_arg) {
-    Direction_t direction = LEFT;
-    int num_leds = 1;
-
-    while (1) {
-        if (num_leds > LED_PTC_NUM) {
-            num_leds = 1;
-        }
-
-        for (int i = 0; i < num_leds; i++) {
+    for(int repeat = 0; repeat < 3; repeat++) {
+        for(int i = 0; i < 4; i++) {
             ptc_bool[i].state = true;
         }
-        for (int i = num_leds; i < LED_PTC_NUM; i++) {
+        vTaskDelay(500 / portTICK_PERIOD_MS);
+        for(int i = 0; i < 4; i++) {
             ptc_bool[i].state = false;
         }
-
-        num_leds++;
         vTaskDelay(500 / portTICK_PERIOD_MS);
     }
+    for(int i = 0; i < 4; i++) {
+        ptc_bool[i].state = false;
+    }
+    vTaskDelete(NULL);
 }
+
 
 void task_monitor_buttons(void *tp_arg) {
     for (int i = 0; i < BUT_NUM; i++) {
