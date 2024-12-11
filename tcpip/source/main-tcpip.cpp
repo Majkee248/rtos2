@@ -26,7 +26,6 @@
 #define TASK_NAME_SOCKET_CLI    "socket_cli"
 #define TASK_NAME_SET_ONOFF    "set_onoff"
 #define TASK_NAME_MONITOR_BUTTONS "monitor_buttons"
-#define TASK_NAME_PRINT_BUTTONS   "print_buttons"
 #define TASK_NAME_BLINK_TASK      "blink_task"
 
 typedef enum { LEFT, RIGHT } Direction_t;
@@ -134,7 +133,6 @@ void task_socket_srv(void *tp_arg);
 void task_socket_cli(void *tp_arg);
 void task_set_onoff(void *tp_arg);
 void task_monitor_buttons(void *tp_arg);
-void task_print_buttons(void *tp_arg);
 void task_blink_leds(void *tp_arg);
 
 BaseType_t xApplicationGetRandomNumber(uint32_t *tp_pul_number) { return uxRand(); }
@@ -350,30 +348,6 @@ void task_monitor_buttons(void *tp_arg) {
     }
 }
 
-void task_print_buttons(void *tp_arg) {
-    bool enter = false;
-    char msg[64];
-    while(true) {
-        strcpy(msg, "BTN ");
-        for(int i = 0; i < BUT_NUM; ++i) {
-            sprintf(msg + strlen(msg), "%d", but_bool[i].state ? 1 : 0);
-            if(!enter && but_bool[i].change) {
-                enter = true;
-            }
-            but_bool[i].change = false;
-        }
-        strcat(msg, "\n");
-        if(enter) {
-            if(l_sock_client != FREERTOS_INVALID_SOCKET) {
-                FreeRTOS_send(l_sock_client, (void*)msg, strlen(msg) + 1, 0);
-                PRINTF("Sent Button States: %s", msg);
-            }
-            enter = false;
-        }
-        vTaskDelay(1 / portTICK_PERIOD_MS);
-    }
-}
-
 void task_blink_leds(void *tp_arg) {
     BlinkCommand_t cmd;
     while(1) {
@@ -391,12 +365,12 @@ void task_blink_leds(void *tp_arg) {
                 }
                 else if(cmd.direction == RIGHT) {
                     for(int i = 0; i < cmd.num_leds && i < LED_PTC_NUM; i++) {
-                        int idx = LED_PTC_NUM -1 -i;
+                        int idx = LED_PTB_NUM -1 -i;
                         ptc_bool[idx].state = true;
                         vTaskDelay(200 / portTICK_PERIOD_MS);
                     }
                     for(int i = 0; i < cmd.num_leds && i < LED_PTC_NUM; i++) {
-                        int idx = LED_PTC_NUM -1 -i;
+                        int idx = LED_PTB_NUM -1 -i;
                         ptc_bool[idx].state = false;
                         vTaskDelay(200 / portTICK_PERIOD_MS);
                     }
@@ -411,45 +385,30 @@ int main(void) {
     BOARD_InitBootClocks();
     BOARD_InitBootPeripherals();
     BOARD_InitDebugConsole();
-
     SYSMPU_Enable(SYSMPU, false);
     PRINTF("FreeRTOS+TCP with Left/Right LED Control started.\r\n");
-
-    uint8_t ucMAC[ipMAC_ADDRESS_LENGTH_BYTES] = { 0x5A, 0xFE, 0xC0, 0xDE, 142, 103 };
+    uint8_t ucMAC[ipMAC_ADDRESS_LENGTH_BYTES] = { 0x5A, 0xFE, 0xC0, 0xDE, 142, 100 };
     uint8_t ucIPAddress[ipIP_ADDRESS_LENGTH_BYTES] = { 10, 0, 0, 10 };
     uint8_t ucIPMask[ipIP_ADDRESS_LENGTH_BYTES] = { 255, 255, 255, 0 };
     uint8_t ucIPGW[ipIP_ADDRESS_LENGTH_BYTES] = { 10, 0, 0, 1 };
-
     FreeRTOS_IPInit(ucIPAddress, ucIPMask, ucIPGW, NULL, ucMAC);
     if(xTaskCreate(task_led_pta_blink, TASK_NAME_LED_PTA, configMINIMAL_STACK_SIZE + 100, NULL, NORMAL_TASK_PRIORITY, NULL) != pdPASS) {
         PRINTF("Unable to create task '%s'.\r\n", TASK_NAME_LED_PTA);
     }
-
     if(xTaskCreate(task_set_onoff, TASK_NAME_SET_ONOFF, configMINIMAL_STACK_SIZE + 100, NULL, NORMAL_TASK_PRIORITY, NULL) != pdPASS) {
         PRINTF("Unable to create task '%s'.\r\n", TASK_NAME_SET_ONOFF);
     }
-
     if(xTaskCreate(task_monitor_buttons, TASK_NAME_MONITOR_BUTTONS, configMINIMAL_STACK_SIZE + 100, NULL, NORMAL_TASK_PRIORITY, NULL) != pdPASS) {
         PRINTF("Unable to create task '%s'.\r\n", TASK_NAME_MONITOR_BUTTONS);
     }
-
-    if(xTaskCreate(task_print_buttons, TASK_NAME_PRINT_BUTTONS, configMINIMAL_STACK_SIZE + 100, NULL, NORMAL_TASK_PRIORITY, NULL) != pdPASS) {
-        PRINTF("Unable to create task '%s'.\r\n", TASK_NAME_PRINT_BUTTONS);
-    }
-
     blink_command_queue = xQueueCreate(BLINK_QUEUE_LENGTH, sizeof(BlinkCommand_t));
-
     if(blink_command_queue == NULL) {
         PRINTF("Failed to create Blink command queue.\r\n");
     }
-
     if(xTaskCreate(task_blink_leds, TASK_NAME_BLINK_TASK, configMINIMAL_STACK_SIZE + 200, NULL, NORMAL_TASK_PRIORITY, NULL) != pdPASS) {
         PRINTF("Unable to create task '%s'.\r\n", TASK_NAME_BLINK_TASK);
     }
-
     vTaskStartScheduler();
-
     while(1);
-
     return 0;
 }
