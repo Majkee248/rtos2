@@ -95,7 +95,6 @@ void task_monitor_buttons(void *tp_arg);
 void task_print_buttons(void *tp_arg);
 void task_blink_ptc9(void *tp_arg);
 #define PTC9_INDEX 0
-xTaskHandle blink_task_handle;
 BaseType_t xApplicationGetRandomNumber( uint32_t * tp_pul_number ) { return uxRand(); }
 void vApplicationStackOverflowHook( xTaskHandle *tp_task_handle, signed portCHAR *tp_task_name )
 {
@@ -351,6 +350,18 @@ void task_blink_ptc9(void *tp_arg)
             PRINTF("Blink pattern completed.\r\n");
         }
         vTaskDelay(100 / portTICK_PERIOD_MS);
+    }
+}
+void task_led_pta_blink( void *t_arg )
+{
+    uint32_t l_inx = 0;
+    while ( 1 )
+    {
+        GPIO_PinWrite( pta[ l_inx ].gpio, pta[ l_inx ].pin, 1 );
+        vTaskDelay( 200 / portTICK_PERIOD_MS );
+        GPIO_PinWrite( pta[ l_inx ].gpio, pta[ l_inx ].pin, 0 );
+        l_inx++;
+        l_inx %= LED_PTA_NUM;
     }
 }
 int main(void) {
