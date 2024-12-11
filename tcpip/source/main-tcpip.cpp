@@ -434,14 +434,15 @@ void task_set_onoff( void *tp_arg ){
 
 void msg() {
     const char *commands[] = {
-            "LED L 1",
-            "LED L 2",
-            "LED L 3",
-            "LED L 4"
+        "LED L 1",
+        "LED L 2",
+        "LED L 3",
+        "LED L 4"
     };
 
     for (int i = 0; i < 4; i++) {
-        PRINTF("%s\n", commands[i]);
+        printf("%s\n", commands[i]);
+        fflush(stdout);
         vTaskDelay(5000 / portTICK_PERIOD_MS);
     }
 }
