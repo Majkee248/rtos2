@@ -53,7 +53,7 @@
 #include "fsl_debug_console.h"
 #include "fsl_sysmpu.h"
 #include <cstdio>
-#include <cstring> // Added for string manipulation
+#include <cstring>
 
 #include "FreeRTOS.h"
 #include "task.h"
@@ -80,13 +80,11 @@
 
 typedef enum { LEFT, RIGHT } Direction_t;
 
-// Define the BlinkCommand structure
 typedef struct {
     Direction_t direction;
     int num_leds;
 } BlinkCommand_t;
 
-// Declare the socket and queue handles
 xSocket_t l_sock_client;
 xQueueHandle blink_command_queue;
 
@@ -159,16 +157,8 @@ CUSTOM_BUT but_bool[BUT_NUM] = {
         {false, false, false, SW_PTC12_PIN, SW_PTC12_GPIO}
 };
 
-// Function prototypes
-void task_led_pta_blink( void *t_arg );
-void task_socket_srv( void *tp_arg );
-void task_socket_cli( void *tp_arg );
-void task_set_onoff( void *tp_arg );
-void task_monitor_buttons(void *tp_arg);
-void task_print_buttons(void *tp_arg);
-void task_blinker(void *params);
 
-// Application-specific functions
+
 BaseType_t xApplicationGetRandomNumber( uint32_t * tp_pul_number ) { return uxRand(); }
 
 void vApplicationStackOverflowHook( xTaskHandle *tp_task_handle, signed portCHAR *tp_task_name )
@@ -194,7 +184,6 @@ void task_led_pta_blink( void *t_arg )
     }
 }
 
-// Command parser
 bool parse_led_command(const char* input, Direction_t* dir, int* num) {
 
     char led_str[] = "LED";
@@ -217,7 +206,6 @@ bool parse_led_command(const char* input, Direction_t* dir, int* num) {
     while (input[i] == ' ') i++;
 
 
-    // Check if direction is specified
     if (input[i] == 'L' || input[i] == 'l') {
         *dir = LEFT;
         i++;
@@ -229,11 +217,9 @@ bool parse_led_command(const char* input, Direction_t* dir, int* num) {
         while (input[i] == ' ') i++;
     }
     else {
-        // Default direction
         *dir = LEFT;
     }
 
-    // Parse number of LEDs
     if (input[i] >= '0' && input[i] <= '9') {
         *num = 0;
         while (input[i] >= '0' && input[i] <= '9') {
@@ -248,7 +234,6 @@ bool parse_led_command(const char* input, Direction_t* dir, int* num) {
     return true;
 }
 
-// Socket server task
 void task_socket_srv( void *tp_arg )
 {
     PRINTF( "Task socket server started.\r\n" );
@@ -338,14 +323,12 @@ void task_socket_srv( void *tp_arg )
                     PRINTF("Invalid command format\n");
                 }
 
-                // Echo back the received command
                 l_len = FreeRTOS_send( l_sock_client, ( void * ) l_rx_buf, strlen((char*)l_rx_buf), 0 );
 
                 PRINTF( "Server forwarded %d bytes.\r\n", l_len );
             }
             if ( l_len < 0 )
             {
-                // Error occurred
                 PRINTF( "FreeRTOS_recv returned error: %ld.\r\n", l_len );
                 break;
             }
@@ -364,7 +347,6 @@ void task_socket_srv( void *tp_arg )
     }
 }
 
-// Socket client task (optional)
 void task_socket_cli( void *tp_arg )
 {
     PRINTF( "Task socket client started. \r\n" );
