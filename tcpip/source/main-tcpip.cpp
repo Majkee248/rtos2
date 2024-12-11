@@ -354,36 +354,29 @@ void task_socket_srv( void *tp_arg )
 }
 
 
-void task_socket_cli( void *tp_arg )
-{
-    PRINTF( "Task socket client started. \r\n" );
+void task_socket_cli(void *tp_arg) {
+    PRINTF("Task socket client started.\r\n");
 
-    vTaskDelay( 500 / portTICK_PERIOD_MS );
+    vTaskDelay(500 / portTICK_PERIOD_MS);
 
-    Socket_t l_sock_server = FreeRTOS_socket( FREERTOS_AF_INET, FREERTOS_SOCK_STREAM, FREERTOS_IPPROTO_TCP );
-    struct freertos_sockaddr *lp_sever_addr = ( freertos_sockaddr * ) tp_arg;
-    BaseType_t l_res = FreeRTOS_connect( l_sock_server, lp_sever_addr, sizeof( freertos_sockaddr ) );
+    Socket_t l_sock_server = FreeRTOS_socket(FREERTOS_AF_INET, FREERTOS_SOCK_STREAM, FREERTOS_IPPROTO_TCP);
+    struct freertos_sockaddr *lp_sever_addr = (struct freertos_sockaddr *)tp_arg;
+    BaseType_t l_res = FreeRTOS_connect(l_sock_server, lp_sever_addr, sizeof(struct freertos_sockaddr));
 
-    if ( l_res == 0 )
-    {
-        PRINTF( "Connected to server.\r\n" );
+    if (l_res == 0) {
+        PRINTF("Connected to server.\r\n");
 
-        for ( int i = 0; i < 10; i++ )
-        {
-            l_res = FreeRTOS_send( l_sock_server, "Hello\n", 6, 0 );
-            PRINTF( "Sent %d bytes.\r\n", l_res );
-            if ( l_res < 0 ) break;
-            vTaskDelay( 500 / portTICK_PERIOD_MS );
+        l_sock_client = l_sock_server;
+
+        while (1) {
+            msg();
         }
-    }
-    else
-    {
-        PRINTF( "Unable to connect to server!\r\n" );
+    } else {
+        PRINTF("Unable to connect to server!\r\n");
     }
 
-    FreeRTOS_closesocket( l_sock_server );
-
-    vTaskDelete( NULL );
+    FreeRTOS_closesocket(l_sock_server);
+    vTaskDelete(NULL);
 }
 
 // Callback from TCP stack - interface state changed
@@ -434,15 +427,20 @@ void task_set_onoff( void *tp_arg ){
 
 void msg() {
     const char *commands[] = {
-        "LED L 1 \n",
-        "LED L 2 \n",
-        "LED L 3 \n",
-        "LED L 4 \n"
+            "LED L 1 \n",
+            "LED L 2 \n",
+            "LED L 3 \n",
+            "LED L 4 \n"
     };
 
     for (int i = 0; i < 4; i++) {
-        FreeRTOS_send(l_sock_client, (void *)commands[i], strlen(commands[i]) + 1, 0);
-        vTaskDelay(1000 / portTICK_PERIOD_MS);
+        if (l_sock_client != FREERTOS_INVALID_SOCKET) {
+            FreeRTOS_send(l_sock_client, (void *)commands[i], strlen(commands[i]) + 1, 0);
+            vTaskDelay(1000 / portTICK_PERIOD_MS);
+        } else {
+            PRINTF("Socket client is invalid.\r\n");
+            break;
+        }
     }
 }
 
@@ -587,7 +585,7 @@ int main(void) {
     {
         PRINTF("Unable to create task '%s'.\r\n", TASK_NAME_PRINT_BUTTONS );
     }
-    
+
     static struct freertos_sockaddr s_server_addr;
     s_server_addr.sin_port = FreeRTOS_htons(SOCKET_CLI_PORT);
     s_server_addr.sin_addr = FreeRTOS_inet_addr_quick(10, 0, 0, 1);
