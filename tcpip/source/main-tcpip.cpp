@@ -79,6 +79,10 @@
 
 typedef enum { LEFT, RIGHT } Direction_t;
 
+
+int8_t l_rx_buf[SOCKET_SRV_BUF_SIZE + 1];
+
+
 xSocket_t l_sock_client;
 SemaphoreHandle_t xSocketMutex;
 
@@ -431,7 +435,8 @@ void task_set_onoff( void *tp_arg ){
     }
 }
 
-void msg(xSocket_t socket) {
+
+void msg() {
     const char *commands[] = {
         "LED L 1 \n",
         "LED L 2 \n",
@@ -440,14 +445,14 @@ void msg(xSocket_t socket) {
     };
 
     for (int i = 0; i < 4; i++) {
-    strncpy(l_rx_buf, commands[i], 8);
-    vTaskDelay(5000 / portTICK_PERIOD_MS);
+        strncpy((char *)l_rx_buf, commands[i], SOCKET_SRV_BUF_SIZE);
+        l_rx_buf[SOCKET_SRV_BUF_SIZE] = '\0';
+        vTaskDelay(5000 / portTICK_PERIOD_MS);
     }
 }
 
 void task_led_sequence(void *tp_arg) {
-    xSocket_t socket = *(xSocket_t *)tp_arg;
-    msg(socket);
+    msg();
     vTaskDelete(NULL);
 }
 
