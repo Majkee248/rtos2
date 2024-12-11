@@ -346,7 +346,7 @@ void task_blink_leds(void *tp_arg) {
         if(xQueueReceive(blink_command_queue, &cmd, portMAX_DELAY) == pdPASS) {
             SemaphoreHandle_t sem = (cmd.direction == LEFT) ? left_button_sem : right_button_sem;
             if(xSemaphoreTake(sem, portMAX_DELAY) == pdTRUE) {
-                for(int repeat = 0; repeat < 3; repeat++) {
+                for(int repeat = 0; repeat < 4; repeat++) {
                     if(cmd.direction == LEFT) {
                         for(int i = 0; i < cmd.num_leds && i < LED_PTC_NUM; i++) {
                             ptc_bool[i].state = true;
@@ -358,14 +358,14 @@ void task_blink_leds(void *tp_arg) {
                         }
                     }
                     else if(cmd.direction == RIGHT) {
-                        for(int i = 0; i < cmd.num_leds && i < LED_PTB_NUM; i++) {
-                            int idx = LED_PTB_NUM -1 -i;
-                            ptb_bool[idx].state = true;
+                        for(int i = 0; i < cmd.num_leds && i < LED_PTC_NUM; i++) {
+                            int idx = LED_PTC_NUM -i;
+                            ptc_bool[idx].state = true;
                             vTaskDelay(200 / portTICK_PERIOD_MS);
                         }
-                        for(int i = 0; i < cmd.num_leds && i < LED_PTB_NUM; i++) {
-                            int idx = LED_PTB_NUM -1 -i;
-                            ptb_bool[idx].state = false;
+                        for(int i = 0; i < cmd.num_leds && i < LED_PTC_NUM; i++) {
+                            int idx = LED_PTC_NUM -i;
+                            ptc_bool[idx].state = false;
                             vTaskDelay(200 / portTICK_PERIOD_MS);
                         }
                     }
