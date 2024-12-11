@@ -353,12 +353,21 @@ void task_blinker(void *tp_arg) {
                 }
                 ptr++;
             }
-            for(int repeat =0; repeat <3; repeat++){
-                for(int i=0; i<count; i++){
+            for(int repeat = 0; repeat < 3; repeat++) {
+                for(int i = 0; i < count; i++) {
                     int led = led_indices[i];
                     ptc_bool[led].state = true;
                     vTaskDelay(200 / portTICK_PERIOD_MS);
                 }
+                for(int i = 0; i < count; i++) {
+                    int led = led_indices[i];
+                    ptc_bool[led].state = false;
+                    vTaskDelay(200 / portTICK_PERIOD_MS);
+                }
+            }
+            for(int i = 0; i < count; i++) {
+                int led = led_indices[i];
+                ptc_bool[led].state = true;
             }
         }
     }
