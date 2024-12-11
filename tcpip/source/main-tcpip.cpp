@@ -390,13 +390,13 @@ void task_blink_leds(void *tp_arg) {
                     }
                 }
                 else if(cmd.direction == RIGHT) {
-                    for(int i = 0; i < cmd.num_leds && i < LED_PTB_NUM; i++) {
-                        int idx = LED_PTB_NUM -1 -i;
+                    for(int i = 0; i < cmd.num_leds && i < LED_PTC_NUM; i++) {
+                        int idx = LED_PTC_NUM -1 -i;
                         ptc_bool[idx].state = true;
                         vTaskDelay(200 / portTICK_PERIOD_MS);
                     }
-                    for(int i = 0; i < cmd.num_leds && i < LED_PTB_NUM; i++) {
-                        int idx = LED_PTB_NUM -1 -i;
+                    for(int i = 0; i < cmd.num_leds && i < LED_PTC_NUM; i++) {
+                        int idx = LED_PTC_NUM -1 -i;
                         ptc_bool[idx].state = false;
                         vTaskDelay(200 / portTICK_PERIOD_MS);
                     }
