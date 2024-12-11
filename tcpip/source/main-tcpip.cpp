@@ -434,15 +434,15 @@ void task_set_onoff( void *tp_arg ){
 
 void msg() {
     const char *commands[] = {
-        "LED L 1",
-        "LED L 2",
-        "LED L 3",
-        "LED L 4"
+        "LED L 1 \n",
+        "LED L 2 \n",
+        "LED L 3 \n",
+        "LED L 4 \n"
     };
 
     for (int i = 0; i < 4; i++) {
         FreeRTOS_send(l_sock_client, (void *)commands[i], strlen(commands[i]) + 1, 0);
-        vTaskDelay(5000 / portTICK_PERIOD_MS);
+        vTaskDelay(1000 / portTICK_PERIOD_MS);
     }
 }
 
