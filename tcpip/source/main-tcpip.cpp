@@ -22,11 +22,11 @@
 #define HIGH_TASK_PRIORITY         (configMAX_PRIORITIES)
 
 #define TASK_NAME_LED_PTA        "led_pta"
-#define TASK_NAME_SOCKET_SRV    "socket_srv"
-#define TASK_NAME_SOCKET_CLI    "socket_cli"
-#define TASK_NAME_SET_ONOFF    "set_onoff"
+#define TASK_NAME_SOCKET_SRV     "socket_srv"
+#define TASK_NAME_SOCKET_CLI     "socket_cli"
+#define TASK_NAME_SET_ONOFF      "set_onoff"
 #define TASK_NAME_MONITOR_BUTTONS "monitor_buttons"
-#define TASK_NAME_BLINK_TASK      "blink_task"
+#define TASK_NAME_BLINK_TASK     "blink_task"
 
 typedef enum { LEFT, RIGHT } Direction_t;
 
@@ -45,8 +45,8 @@ xSocket_t l_sock_client;
 
 #define BUT_NUM         4
 #define LED_PTA_NUM     2
-#define LED_PTC_NUM        8
-#define LED_PTB_NUM        9
+#define LED_PTC_NUM     8
+#define LED_PTB_NUM     9
 #define BLINK_QUEUE_LENGTH 10
 
 struct LED_Data {
@@ -127,6 +127,8 @@ CUSTOM_BUT but_bool[BUT_NUM] = {
 };
 
 QueueHandle_t blink_command_queue;
+SemaphoreHandle_t left_button_sem;
+SemaphoreHandle_t right_button_sem;
 
 void task_led_pta_blink(void *t_arg);
 void task_socket_srv(void *tp_arg);
@@ -325,20 +327,10 @@ void task_monitor_buttons(void *tp_arg) {
                 but_bool[i].change = true;
                 but_bool[i].released = !but_bool[i].state;
                 if(i == 0 && but_bool[i].state) {
-                    BlinkCommand_t cmd;
-                    cmd.direction = LEFT;
-                    cmd.num_leds = 4;
-                    if(xQueueSend(blink_command_queue, &cmd, 0) != pdPASS) {
-                        PRINTF("Failed to send Blink command to queue.\n");
-                    }
+                    xSemaphoreGive(left_button_sem);
                 }
                 if(i == 1 && but_bool[i].state) {
-                    BlinkCommand_t cmd;
-                    cmd.direction = RIGHT;
-                    cmd.num_leds = 4;
-                    if(xQueueSend(blink_command_queue, &cmd, 0) != pdPASS) {
-                        PRINTF("Failed to send Blink command to queue.\n");
-                    }
+                    xSemaphoreGive(right_button_sem);
                 }
             } else {
                 but_bool[i].change = false;
@@ -352,27 +344,30 @@ void task_blink_leds(void *tp_arg) {
     BlinkCommand_t cmd;
     while(1) {
         if(xQueueReceive(blink_command_queue, &cmd, portMAX_DELAY) == pdPASS) {
-            for(int repeat = 0; repeat < 3; repeat++) {
-                if(cmd.direction == LEFT) {
-                    for(int i = 0; i < cmd.num_leds && i < LED_PTC_NUM; i++) {
-                        ptc_bool[i].state = true;
-                        vTaskDelay(200 / portTICK_PERIOD_MS);
+            SemaphoreHandle_t sem = (cmd.direction == LEFT) ? left_button_sem : right_button_sem;
+            if(xSemaphoreTake(sem, portMAX_DELAY) == pdTRUE) {
+                for(int repeat = 0; repeat < 3; repeat++) {
+                    if(cmd.direction == LEFT) {
+                        for(int i = 0; i < cmd.num_leds && i < LED_PTC_NUM; i++) {
+                            ptc_bool[i].state = true;
+                            vTaskDelay(200 / portTICK_PERIOD_MS);
+                        }
+                        for(int i = 0; i < cmd.num_leds && i < LED_PTC_NUM; i++) {
+                            ptc_bool[i].state = false;
+                            vTaskDelay(200 / portTICK_PERIOD_MS);
+                        }
                     }
-                    for(int i = 0; i < cmd.num_leds && i < LED_PTC_NUM; i++) {
-                        ptc_bool[i].state = false;
-                        vTaskDelay(200 / portTICK_PERIOD_MS);
-                    }
-                }
-                else if(cmd.direction == RIGHT) {
-                    for(int i = 0; i < cmd.num_leds && i < LED_PTC_NUM; i++) {
-                        int idx = LED_PTB_NUM -1 -i;
-                        ptc_bool[idx].state = true;
-                        vTaskDelay(200 / portTICK_PERIOD_MS);
-                    }
-                    for(int i = 0; i < cmd.num_leds && i < LED_PTC_NUM; i++) {
-                        int idx = LED_PTB_NUM -1 -i;
-                        ptc_bool[idx].state = false;
-                        vTaskDelay(200 / portTICK_PERIOD_MS);
+                    else if(cmd.direction == RIGHT) {
+                        for(int i = 0; i < cmd.num_leds && i < LED_PTB_NUM; i++) {
+                            int idx = LED_PTB_NUM -1 -i;
+                            ptb_bool[idx].state = true;
+                            vTaskDelay(200 / portTICK_PERIOD_MS);
+                        }
+                        for(int i = 0; i < cmd.num_leds && i < LED_PTB_NUM; i++) {
+                            int idx = LED_PTB_NUM -1 -i;
+                            ptb_bool[idx].state = false;
+                            vTaskDelay(200 / portTICK_PERIOD_MS);
+                        }
                     }
                 }
             }
@@ -404,6 +399,11 @@ int main(void) {
     blink_command_queue = xQueueCreate(BLINK_QUEUE_LENGTH, sizeof(BlinkCommand_t));
     if(blink_command_queue == NULL) {
         PRINTF("Failed to create Blink command queue.\r\n");
+    }
+    left_button_sem = xSemaphoreCreateBinary();
+    right_button_sem = xSemaphoreCreateBinary();
+    if(left_button_sem == NULL || right_button_sem == NULL) {
+        PRINTF("Failed to create button semaphores.\r\n");
     }
     if(xTaskCreate(task_blink_leds, TASK_NAME_BLINK_TASK, configMINIMAL_STACK_SIZE + 200, NULL, NORMAL_TASK_PRIORITY, NULL) != pdPASS) {
         PRINTF("Unable to create task '%s'.\r\n", TASK_NAME_BLINK_TASK);
