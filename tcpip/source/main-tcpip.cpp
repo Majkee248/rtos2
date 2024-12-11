@@ -66,27 +66,22 @@
 
 // Task priorities.
 #define LOW_TASK_PRIORITY         (configMAX_PRIORITIES - 2)
-#define NORMAL_TASK_PRIORITY      (configMAX_PRIORITIES - 1)
-#define HIGH_TASK_PRIORITY        (configMAX_PRIORITIES)
+#define NORMAL_TASK_PRIORITY     (configMAX_PRIORITIES - 1)
+#define HIGH_TASK_PRIORITY         (configMAX_PRIORITIES)
 
 // Task names.
-#define TASK_NAME_LED_PTA            "led_pta"
-#define TASK_NAME_SOCKET_SRV        "socket_srv"
-#define TASK_NAME_SOCKET_CLI        "socket_cli"
-#define TASK_NAME_SET_ONOFF        "set_onoff"
-#define TASK_NAME_MONITOR_BUTTONS    "monitor_buttons"
-#define TASK_NAME_PRINT_BUTTONS     "print_buttons"
-#define TASK_NAME_CMD_PROCESSOR     "cmd_processor"
-
-#define COMMAND_QUEUE_LENGTH    10
-#define COMMAND_QUEUE_ITEM_SIZE sizeof(char) * 256
+#define TASK_NAME_LED_PTA        "led_pta"
+#define TASK_NAME_SOCKET_SRV    "socket_srv"
+#define TASK_NAME_SOCKET_CLI    "socket_cli"
+#define TASK_NAME_SET_ONOFF    "set_onoff"
+#define TASK_NAME_MONITOR_BUTTONS "monitor_buttons"
+#define TASK_NAME_PRINT_BUTTONS   "print_buttons"
 
 typedef enum { LEFT, RIGHT } Direction_t;
 
-xSocket_t l_sock_client = FREERTOS_INVALID_SOCKET;
+xSocket_t l_sock_client;
 SemaphoreHandle_t xSocketMutex;
 
-QueueHandle_t xCommandQueue;
 
 #define SOCKET_SRV_TOUT            1000
 #define SOCKET_SRV_BUF_SIZE        256
@@ -155,6 +150,13 @@ CUSTOM_BUT but_bool[BUT_NUM] = {
         {false, false, false, SW_PTC11_PIN, SW_PTC11_GPIO},
         {false, false, false, SW_PTC12_PIN, SW_PTC12_GPIO}
 };
+
+void task_led_pta_blink( void *t_arg );
+void task_socket_srv( void *tp_arg );
+void task_socket_cli( void *tp_arg );
+void task_set_onoff( void *tp_arg );
+void task_monitor_buttons(void *tp_arg);
+void task_print_buttons(void *tp_arg);
 
 BaseType_t xApplicationGetRandomNumber( uint32_t * tp_pul_number ) { return uxRand(); }
 
@@ -270,7 +272,6 @@ void task_socket_srv( void *tp_arg )
     {
         uint32_t l_reply_count = 0;
 
-        // Wait for a client to connect
         do {
             l_sock_client = FreeRTOS_accept( l_sock_listen, &from, &fromSize );
             vTaskDelay( SOCKET_SRV_TOUT / portTICK_PERIOD_MS );
@@ -288,7 +289,7 @@ void task_socket_srv( void *tp_arg )
         {
             BaseType_t l_len;
 
-            l_len = FreeRTOS_recv(    l_sock_client, l_rx_buf, SOCKET_SRV_BUF_SIZE, 0 );
+            l_len = FreeRTOS_recv( l_sock_client, l_rx_buf, SOCKET_SRV_BUF_SIZE, 0 );
 
             if( l_len > 0 )
             {
@@ -296,38 +297,56 @@ void task_socket_srv( void *tp_arg )
 
                 PRINTF( "Received: %s\r\n", l_rx_buf );
 
+                Direction_t direction;
+                int num_leds;
 
-                if( xQueueSend( xCommandQueue, &l_rx_buf, ( TickType_t ) 10 ) != pdPASS )
-                {
-                    PRINTF( "Failed to enqueue command.\r\n" );
+                if (parse_led_command((char *)l_rx_buf, &direction, &num_leds)) {
+                    PRINTF("Parsed command: Direction=%s, Number=%d\r\n", direction == LEFT ? "LEFT" : "RIGHT", num_leds);
+
+                    if (num_leds >= 0 && num_leds <= LED_PTC_NUM) {
+                        if (direction == LEFT) {
+                            for (int i = 0; i < num_leds; i++) {
+                                ptc_bool[i].state = true;
+                                PRINTF("LED PTC%d ON\n", i);
+                            }
+                            for (int i = num_leds; i < LED_PTC_NUM; i++) {
+                                ptc_bool[i].state = false;
+                            }
+                        } else if (direction == RIGHT) {
+                            for (int i = 0; i < num_leds; i++) {
+                                ptc_bool[LED_PTC_NUM - 1 - i].state = true;
+                                PRINTF("LED PTC%d ON\n", LED_PTC_NUM - 1 - i);
+                            }
+                            for (int i = 0; i < LED_PTC_NUM - num_leds; i++) {
+                                ptc_bool[i].state = false;
+                            }
+                        }
+                    } else {
+                        PRINTF("Invalid number of LEDs: %d\n", num_leds);
+                    }
+                } else {
+                    PRINTF("Invalid command format\n");
                 }
-                else
-                {
-                    PRINTF( "Command enqueued successfully.\r\n" );
-                }
 
+                l_len = FreeRTOS_send( l_sock_client, ( void * ) l_rx_buf, strlen((char*)l_rx_buf), 0 );
 
-                const char *ack = "Command received.\n";
-                FreeRTOS_send( l_sock_client, ( void * ) ack, strlen(ack), 0 );
-                PRINTF( "Acknowledgment sent.\r\n" );
+                PRINTF( "Server forwarded %d bytes.\r\n", l_len );
             }
             if ( l_len < 0 )
             {
-
+                // Error occurred
                 PRINTF( "FreeRTOS_recv returned error: %ld.\r\n", l_len );
                 break;
             }
             if ( l_len == 0 )
             {
-                PRINTF( "Recv timeout or connection closed.\r\n" );
+                PRINTF( "Recv timeout.\r\n" );
                 break;
             }
         }
-        PRINTF( "Socket server handled %d replies.\r\n", l_reply_count );
-
+        PRINTF( "Socket server replied %d times.\r\n", l_reply_count );
 
         vTaskDelay( SOCKET_SRV_TOUT / portTICK_PERIOD_MS );
-
 
         FreeRTOS_closesocket( l_sock_client );
         l_sock_client = FREERTOS_INVALID_SOCKET;
@@ -340,8 +359,8 @@ void task_socket_cli( void *tp_arg )
 
     vTaskDelay( 500 / portTICK_PERIOD_MS );
 
+    Socket_t l_sock_server = FreeRTOS_socket( FREERTOS_AF_INET, FREERTOS_SOCK_STREAM, FREERTOS_IPPROTO_TCP );
     struct freertos_sockaddr *lp_sever_addr = ( freertos_sockaddr * ) tp_arg;
-    xSocket_t l_sock_server = FreeRTOS_socket( FREERTOS_AF_INET, FREERTOS_SOCK_STREAM, FREERTOS_IPPROTO_TCP );
     BaseType_t l_res = FreeRTOS_connect( l_sock_server, lp_sever_addr, sizeof( freertos_sockaddr ) );
 
     if ( l_res == 0 )
@@ -350,9 +369,8 @@ void task_socket_cli( void *tp_arg )
 
         for ( int i = 0; i < 10; i++ )
         {
-            const char *msg = "Hello from client\n";
-            l_res = FreeRTOS_send( l_sock_server, msg, strlen(msg), 0 );
-            PRINTF( "Sent %d bytes: %s", l_res, msg );
+            l_res = FreeRTOS_send( l_sock_server, "Hello\n", 6, 0 );
+            PRINTF( "Sent %d bytes.\r\n", l_res );
             if ( l_res < 0 ) break;
             vTaskDelay( 500 / portTICK_PERIOD_MS );
         }
@@ -406,55 +424,31 @@ void vApplicationIPNetworkEventHook( eIPCallbackEvent_t t_network_event )
 void task_set_onoff( void *tp_arg ){
     while(1) {
         for(int i = 0; i < LED_PTC_NUM; i++) {
-            GPIO_PinWrite( ptc_bool[ i ].gpio, ptc_bool[ i ].pin, ptc_bool[i].state ? 1 : 0 );
+            GPIO_PinWrite( ptc_bool[ i ].gpio, ptc_bool[ i ].pin, ptc_bool[i].state );
         }
 
-        vTaskDelay( 50 / portTICK_PERIOD_MS );
+        vTaskDelay( 5 / portTICK_PERIOD_MS );
     }
 }
 
-// Command processor task
-void task_command_processor(void *tp_arg) {
-    char received_command[256];
-    Direction_t direction;
-    int num_leds;
+void msg(xSocket_t socket) {
+    const char *commands[] = {
+        "LED L 1 \n",
+        "LED L 2 \n",
+        "LED L 3 \n",
+        "LED L 4 \n"
+    };
 
-    while (1) {
-        // Wait indefinitely for a command
-        if (xQueueReceive(xCommandQueue, &received_command, portMAX_DELAY) == pdPASS) {
-            PRINTF("Processing command: %s\r\n", received_command);
-
-            // Parse the command
-            if (parse_led_command(received_command, &direction, &num_leds)) {
-                PRINTF("Parsed command: Direction=%s, Number=%d\r\n",
-                       direction == LEFT ? "LEFT" : "RIGHT", num_leds);
-
-                if (num_leds >= 0 && num_leds <= LED_PTC_NUM) {
-                    if (direction == LEFT) {
-                        for (int i = 0; i < num_leds; i++) {
-                            ptc_bool[i].state = true;
-                            PRINTF("LED PTC%d ON\n", i);
-                        }
-                        for (int i = num_leds; i < LED_PTC_NUM; i++) {
-                            ptc_bool[i].state = false;
-                        }
-                    } else if (direction == RIGHT) {
-                        for (int i = 0; i < num_leds; i++) {
-                            ptc_bool[LED_PTC_NUM - 1 - i].state = true;
-                            PRINTF("LED PTC%d ON\n", LED_PTC_NUM - 1 - i);
-                        }
-                        for (int i = 0; i < LED_PTC_NUM - num_leds; i++) {
-                            ptc_bool[i].state = false;
-                        }
-                    }
-                } else {
-                    PRINTF("Invalid number of LEDs: %d\n", num_leds);
-                }
-            } else {
-                PRINTF("Invalid command format: %s\n", received_command);
-            }
-        }
+    for (int i = 0; i < 4; i++) {
+    strncpy(l_rx_buf, commands[i], 8);
+    vTaskDelay(5000 / portTICK_PERIOD_MS);
     }
+}
+
+void task_led_sequence(void *tp_arg) {
+    xSocket_t socket = *(xSocket_t *)tp_arg;
+    msg(socket);
+    vTaskDelete(NULL);
 }
 
 void task_monitor_buttons(void *tp_arg) {
@@ -476,12 +470,14 @@ void task_monitor_buttons(void *tp_arg) {
                 but_bool[i].released = !but_bool[i].state;
 
                 if (i == 0 && but_bool[i].state) {
-
-                    const char *led_seq_cmd = "LED L 4\n";
-                    if(xQueueSend(xCommandQueue, &led_seq_cmd, (TickType_t) 10) != pdPASS) {
-                        PRINTF("Failed to enqueue LED sequence command.\r\n");
-                    } else {
-                        PRINTF("LED sequence command enqueued.\r\n");
+                    if (xTaskCreate(
+                            task_led_sequence,
+                            "led_sequence",
+                            configMINIMAL_STACK_SIZE + 100,
+                            &l_sock_client,
+                            NORMAL_TASK_PRIORITY,
+                            NULL) != pdPASS) {
+                        PRINTF("Unable to create task 'led_sequence'.\r\n");
                     }
                 }
             } else {
@@ -489,7 +485,7 @@ void task_monitor_buttons(void *tp_arg) {
             }
         }
 
-        vTaskDelay(10 / portTICK_PERIOD_MS);
+        vTaskDelay(1 / portTICK_PERIOD_MS);
     }
 }
 
@@ -510,13 +506,13 @@ void task_print_buttons(void *tp_arg) {
 
         if (enter) {
             if(l_sock_client != FREERTOS_INVALID_SOCKET){
-                FreeRTOS_send(l_sock_client, (void *)msg, strlen(msg), 0);
+                FreeRTOS_send(l_sock_client, (void *)msg, strlen(msg) + 1, 0);
                 PRINTF("Sent Button States: %s", msg);
             }
             enter = false;
         }
 
-        vTaskDelay(100 / portTICK_PERIOD_MS); // Adjusted delay
+        vTaskDelay(1 / portTICK_PERIOD_MS);
     }
 }
 
@@ -539,20 +535,13 @@ int main(void) {
     // Set MAC to 5A FE C0 DE XXX YYY+21
     // IP address will be configured from DHCP
     //
-    uint8_t ucMAC[ipMAC_ADDRESS_LENGTH_BYTES] = { 0x5A, 0xFE, 0xC0, 0xDE, 0x8E, 0x64 };
+    uint8_t ucMAC[ipMAC_ADDRESS_LENGTH_BYTES] = { 0x5A, 0xFE, 0xC0, 0xDE, 142, 100 };
 
     uint8_t ucIPAddress[ipIP_ADDRESS_LENGTH_BYTES] = { 10, 0, 0, 10 };
     uint8_t ucIPMask[ipIP_ADDRESS_LENGTH_BYTES] = { 255, 255, 255, 0 };
     uint8_t ucIPGW[ipIP_ADDRESS_LENGTH_BYTES] = { 10, 0, 0, 1 };
 
     FreeRTOS_IPInit(ucIPAddress, ucIPMask, ucIPGW, NULL, ucMAC);
-
-    // Create a queue for incoming commands
-    xCommandQueue = xQueueCreate(COMMAND_QUEUE_LENGTH, COMMAND_QUEUE_ITEM_SIZE);
-    if (xCommandQueue == NULL) {
-        PRINTF("Failed to create command queue.\r\n");
-        while(1); // Halt if queue creation fails
-    }
 
     // Create existing tasks
     if (xTaskCreate(
@@ -597,18 +586,6 @@ int main(void) {
             NULL) != pdPASS )
     {
         PRINTF("Unable to create task '%s'.\r\n", TASK_NAME_PRINT_BUTTONS );
-    }
-
-    // Create the command processor task
-    if (xTaskCreate(
-            task_command_processor,
-            TASK_NAME_CMD_PROCESSOR,
-            configMINIMAL_STACK_SIZE + 500,
-            NULL,
-            HIGH_TASK_PRIORITY,
-            NULL) != pdPASS )
-    {
-        PRINTF("Unable to create task '%s'.\r\n", TASK_NAME_CMD_PROCESSOR );
     }
 
     vTaskStartScheduler();
