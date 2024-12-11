@@ -79,10 +79,6 @@
 
 typedef enum { LEFT, RIGHT } Direction_t;
 
-
-int8_t l_rx_buf[SOCKET_SRV_BUF_SIZE + 1];
-
-
 xSocket_t l_sock_client;
 SemaphoreHandle_t xSocketMutex;
 
@@ -293,69 +289,66 @@ void task_socket_srv( void *tp_arg )
         {
             BaseType_t l_len;
 
-            l_len = FreeRTOS_recv( l_sock_client, l_rx_buf, SOCKET_SRV_BUF_SIZE, 0 );
+            l_len = FreeRTOS_recv(    l_sock_client, l_rx_buf, SOCKET_SRV_BUF_SIZE, 0 );
 
-            if( l_len > 0 )
+            if (l_len > 0)
             {
-                l_rx_buf[ l_len ] = '\0';
+                l_rx_buf[l_len] = '\0';
 
-                PRINTF( "Received: %s\r\n", l_rx_buf );
+                PRINTF("Received: %s\r\n", l_rx_buf);
 
+                char command;
                 Direction_t direction;
                 int num_leds;
 
-                if (parse_led_command((char *)l_rx_buf, &direction, &num_leds)) {
-                    PRINTF("Parsed command: Direction=%s, Number=%d\r\n", direction == LEFT ? "LEFT" : "RIGHT", num_leds);
+                if (parse_command((char *)l_rx_buf, &command, &direction, &num_leds)) {
+                    if (command == 'L') {
+                        PRINTF("Parsed LED command: Direction=%s, Number=%d\r\n",
+                               direction == LEFT ? "LEFT" : "RIGHT", num_leds);
 
-                    if (num_leds >= 0 && num_leds <= LED_PTC_NUM) {
-                        if (direction == LEFT) {
-                            for (int i = 0; i < num_leds; i++) {
-                                ptc_bool[i].state = true;
-                                PRINTF("LED PTC%d ON\n", i);
+                        for (int i = 0; i < LED_PTC_NUM; ++i) {
+                            if (direction == LEFT) {
+                                ptc_bool[i].state = (i < num_leds);
+                            } else {
+                                ptc_bool[i].state = (i >= LED_PTC_NUM - num_leds);
                             }
-                            for (int i = num_leds; i < LED_PTC_NUM; i++) {
-                                ptc_bool[i].state = false;
-                            }
-                        } else if (direction == RIGHT) {
-                            for (int i = 0; i < num_leds; i++) {
-                                ptc_bool[LED_PTC_NUM - 1 - i].state = true;
-                                PRINTF("LED PTC%d ON\n", LED_PTC_NUM - 1 - i);
-                            }
-                            for (int i = 0; i < LED_PTC_NUM - num_leds; i++) {
-                                ptc_bool[i].state = false;
-                            }
+                            PRINTF("LED PTC%d state: %d\n", i, ptc_bool[i].state);
                         }
-                    } else {
-                        PRINTF("Invalid number of LEDs: %d\n", num_leds);
+                    } else if (command == 'T') {
+                        PRINTF("Parsed LIST command.\r\n");
+                        send_task_list(l_sock_client);
                     }
                 } else {
                     PRINTF("Invalid command format\n");
                 }
 
-                l_len = FreeRTOS_send( l_sock_client, ( void * ) l_rx_buf, strlen((char*)l_rx_buf), 0 );
+                l_len = FreeRTOS_send(l_sock_client, (void *)l_rx_buf, strlen((char *)l_rx_buf), 0);
 
-                PRINTF( "Server forwarded %d bytes.\r\n", l_len );
+                PRINTF("Server forwarded %d bytes.\r\n", l_len);
             }
-            if ( l_len < 0 )
+            if (l_len < 0)
             {
-                // Error occurred
-                PRINTF( "FreeRTOS_recv returned error: %ld.\r\n", l_len );
+                // FreeRTOS_debug_printf(("FreeRTOS_recv: rc = %ld.\n", l_len));
+                // Probably '-FREERTOS_ERRNO_ENOTCONN', see FreeRTOS_IP.h
                 break;
             }
-            if ( l_len == 0 )
+            if (l_len == 0)
             {
-                PRINTF( "Recv timeout.\r\n" );
-                break;
+                PRINTF("Recv timeout.\r\n");
+                // FreeRTOS_setsockopt(l_sock_listen, 0, FREERTOS_SO_RCVTIMEO, &l_receive_tout, sizeof(l_receive_tout));
             }
         }
         PRINTF( "Socket server replied %d times.\r\n", l_reply_count );
 
+
         vTaskDelay( SOCKET_SRV_TOUT / portTICK_PERIOD_MS );
+
 
         FreeRTOS_closesocket( l_sock_client );
         l_sock_client = FREERTOS_INVALID_SOCKET;
     }
 }
+
 
 void task_socket_cli( void *tp_arg )
 {
@@ -435,8 +428,7 @@ void task_set_onoff( void *tp_arg ){
     }
 }
 
-
-void msg() {
+void msg(xSocket_t socket) {
     const char *commands[] = {
         "LED L 1 \n",
         "LED L 2 \n",
@@ -445,14 +437,14 @@ void msg() {
     };
 
     for (int i = 0; i < 4; i++) {
-        strncpy((char *)l_rx_buf, commands[i], SOCKET_SRV_BUF_SIZE);
-        l_rx_buf[SOCKET_SRV_BUF_SIZE] = '\0';
+        FreeRTOS_send(socket, commands[i], strlen(commands[i]), 0);
         vTaskDelay(5000 / portTICK_PERIOD_MS);
     }
 }
 
 void task_led_sequence(void *tp_arg) {
-    msg();
+    xSocket_t socket = *(xSocket_t *)tp_arg;
+    msg(socket);
     vTaskDelete(NULL);
 }
 
