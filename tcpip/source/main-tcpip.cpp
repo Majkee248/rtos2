@@ -587,6 +587,21 @@ int main(void) {
     {
         PRINTF("Unable to create task '%s'.\r\n", TASK_NAME_PRINT_BUTTONS );
     }
+    
+    static struct freertos_sockaddr s_server_addr;
+    s_server_addr.sin_port = FreeRTOS_htons(SOCKET_CLI_PORT);
+    s_server_addr.sin_addr = FreeRTOS_inet_addr_quick(10, 0, 0, 1);
+
+    if (xTaskCreate(
+            task_socket_cli,
+            TASK_NAME_SOCKET_CLI,
+            configMINIMAL_STACK_SIZE + 1024,
+            &s_server_addr,
+            configMAX_PRIORITIES - 1,
+            NULL) != pdPASS )
+    {
+        PRINTF("Unable to create task '%s'.\r\n", TASK_NAME_SOCKET_CLI );
+    }
 
     vTaskStartScheduler();
 
