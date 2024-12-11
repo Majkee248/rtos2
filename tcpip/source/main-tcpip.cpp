@@ -27,8 +27,11 @@
 #define TASK_NAME_BLINK_PTC9       "blink_ptc9"
 #define BLINK_REPEAT_COUNT         4
 #define BLINK_DELAY_MS             500
+
 typedef enum { LEFT, RIGHT } Direction_t;
+
 xSocket_t l_sock_client;
+
 #define SOCKET_SRV_TOUT            1000
 #define SOCKET_SRV_BUF_SIZE        256
 #define SOCKET_SRV_PORT            3333
@@ -37,16 +40,19 @@ xSocket_t l_sock_client;
 #define LED_PTA_NUM     2
 #define LED_PTC_NUM        8
 #define LED_PTB_NUM        9
+
 struct LED_Data
 {
     uint32_t pin;
     GPIO_Type *gpio;
 };
+
 LED_Data pta[ LED_PTA_NUM ] =
         {
                 { LED_PTA1_PIN, LED_PTA1_GPIO },
                 { LED_PTA2_PIN, LED_PTA2_GPIO },
         };
+
 LED_Data ptc[ LED_PTC_NUM ] =
         {
                 { LED_PTC0_PIN, LED_PTC0_GPIO },
@@ -58,11 +64,13 @@ LED_Data ptc[ LED_PTC_NUM ] =
                 { LED_PTC7_PIN, LED_PTC7_GPIO },
                 { LED_PTC8_PIN, LED_PTC8_GPIO },
         };
+
 struct CUSTOM_LED {
     bool state;
     uint32_t pin;
     GPIO_Type *gpio;
 };
+
 CUSTOM_LED ptc_bool[ LED_PTC_NUM ] =
         {
                 { false, LED_PTC0_PIN, LED_PTC0_GPIO },
@@ -74,6 +82,7 @@ CUSTOM_LED ptc_bool[ LED_PTC_NUM ] =
                 { false, LED_PTC7_PIN, LED_PTC7_GPIO },
                 { false, LED_PTC8_PIN, LED_PTC8_GPIO },
         };
+
 struct CUSTOM_BUT {
     bool state;
     bool change;
@@ -81,57 +90,31 @@ struct CUSTOM_BUT {
     unsigned int pin;
     GPIO_Type *gpio;
 };
+
 CUSTOM_BUT but_bool[BUT_NUM] = {
         {false, false, false, SW_PTC9_PIN, SW_PTC9_GPIO},
         {false, false, false, SW_PTC10_PIN, SW_PTC10_GPIO},
         {false, false, false, SW_PTC11_PIN, SW_PTC11_GPIO},
         {false, false, false, SW_PTC12_PIN, SW_PTC12_GPIO}
 };
-void task_led_pta_blink( void *t_arg );
-void task_socket_srv( void *tp_arg );
-void task_socket_cli( void *tp_arg );
-void task_set_onoff( void *tp_arg );
-void task_monitor_buttons(void *tp_arg);
-void task_print_buttons(void *tp_arg);
-void task_blink_ptc9(void *tp_arg);
+
 #define PTC9_INDEX 0
-BaseType_t xApplicationGetRandomNumber( uint32_t * tp_pul_number ) { return uxRand(); }
-void vApplicationStackOverflowHook( xTaskHandle *tp_task_handle, signed portCHAR *tp_task_name )
+
+bool parse_led_command(const char* input, Direction_t* dir, int* num);
+
+void task_led_pta_blink( void *t_arg )
 {
+    uint32_t l_inx = 0;
+    while ( 1 )
+    {
+        GPIO_PinWrite( pta[ l_inx ].gpio, pta[ l_inx ].pin, 1 );
+        vTaskDelay( 200 / portTICK_PERIOD_MS );
+        GPIO_PinWrite( pta[ l_inx ].gpio, pta[ l_inx ].pin, 0 );
+        l_inx++;
+        l_inx %= LED_PTA_NUM;
+    }
 }
-bool parse_led_command(const char* input, Direction_t* dir, int* num) {
-    char led_str[] = "LED";
-    int i = 0;
-    while (input[i] == ' ') i++;
-    int j = 0;
-    while (led_str[j] != '\0') {
-        if (input[i] != led_str[j]) {
-            return false;
-        }
-        i++;
-        j++;
-    }
-    while (input[i] == ' ') i++;
-    if (input[i] == 'L' || input[i] == 'l') {
-        *dir = LEFT;
-    } else if (input[i] == 'R' || input[i] == 'r') {
-        *dir = RIGHT;
-    } else {
-        return false;
-    }
-    i++;
-    while (input[i] == ' ') i++;
-    if (input[i] >= '0' && input[i] <= '9') {
-        *num = 0;
-        while (input[i] >= '0' && input[i] <= '9') {
-            *num = (*num) * 10 + (input[i] - '0');
-            i++;
-        }
-    } else {
-        return false;
-    }
-    return true;
-}
+
 void task_socket_srv( void *tp_arg )
 {
     PRINTF( "Task socket server started.\r\n" );
@@ -229,6 +212,7 @@ void task_socket_srv( void *tp_arg )
         l_sock_client = FREERTOS_INVALID_SOCKET;
     }
 }
+
 void task_socket_cli( void *tp_arg )
 {
     PRINTF( "Task socket client started. \r\n" );
@@ -254,6 +238,7 @@ void task_socket_cli( void *tp_arg )
     FreeRTOS_closesocket( l_sock_server );
     vTaskDelete( NULL );
 }
+
 void vApplicationIPNetworkEventHook( eIPCallbackEvent_t t_network_event )
 {
     static BaseType_t s_task_already_created = pdFALSE;
@@ -274,7 +259,9 @@ void vApplicationIPNetworkEventHook( eIPCallbackEvent_t t_network_event )
         }
     }
 }
-void task_set_onoff( void *tp_arg ){
+
+void task_set_onoff( void *tp_arg )
+{
     while(1) {
         for(int i = 0; i < LED_PTC_NUM; i++) {
             GPIO_PinWrite( ptc_bool[ i ].gpio, ptc_bool[i].pin, ptc_bool[i].state );
@@ -282,7 +269,9 @@ void task_set_onoff( void *tp_arg ){
         vTaskDelay( 5 / portTICK_PERIOD_MS );
     }
 }
-void task_monitor_buttons(void *tp_arg) {
+
+void task_monitor_buttons(void *tp_arg)
+{
     for (int i = 0; i < BUT_NUM; i++) {
         but_bool[i].change = false;
         but_bool[i].released = true;
@@ -303,7 +292,9 @@ void task_monitor_buttons(void *tp_arg) {
         vTaskDelay(10 / portTICK_PERIOD_MS);
     }
 }
-void task_print_buttons(void *tp_arg) {
+
+void task_print_buttons(void *tp_arg)
+{
     bool enter = false;
     char msg[64];
     while (true) {
@@ -326,6 +317,7 @@ void task_print_buttons(void *tp_arg) {
         vTaskDelay(1 / portTICK_PERIOD_MS);
     }
 }
+
 void task_blink_ptc9(void *tp_arg)
 {
     while (1)
@@ -352,19 +344,9 @@ void task_blink_ptc9(void *tp_arg)
         vTaskDelay(100 / portTICK_PERIOD_MS);
     }
 }
-void task_led_pta_blink( void *t_arg )
+
+int main(void)
 {
-    uint32_t l_inx = 0;
-    while ( 1 )
-    {
-        GPIO_PinWrite( pta[ l_inx ].gpio, pta[ l_inx ].pin, 1 );
-        vTaskDelay( 200 / portTICK_PERIOD_MS );
-        GPIO_PinWrite( pta[ l_inx ].gpio, pta[ l_inx ].pin, 0 );
-        l_inx++;
-        l_inx %= LED_PTA_NUM;
-    }
-}
-int main(void) {
     BOARD_InitBootPins();
     BOARD_InitBootClocks();
     BOARD_InitBootPeripherals();
