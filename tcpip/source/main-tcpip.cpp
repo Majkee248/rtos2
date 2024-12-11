@@ -434,10 +434,10 @@ void task_set_onoff( void *tp_arg ){
 
 void msg() {
     const char *commands[] = {
-        "LED L 1 \n",
-        "LED L 2 \n",
-        "LED L 3 \n",
-        "LED L 4 \n"
+            "LED L 1 \n",
+            "LED L 2 \n",
+            "LED L 3 \n",
+            "LED L 4 \n"
     };
 
     for (int i = 0; i < 4; i++) {
