@@ -80,6 +80,8 @@
 typedef enum { LEFT, RIGHT } Direction_t;
 
 xSocket_t l_sock_client;
+SemaphoreHandle_t xSocketMutex;
+
 
 #define SOCKET_SRV_TOUT            1000
 #define SOCKET_SRV_BUF_SIZE        256
@@ -434,15 +436,31 @@ void task_set_onoff( void *tp_arg ){
 
 void msg() {
     const char *commands[] = {
-        "LED L 1",
-        "LED L 2",
-        "LED L 3",
-        "LED L 4"
+            "LED L 1\n",
+            "LED L 2\n",
+            "LED L 3\n",
+            "LED L 4\n"
     };
 
     for (int i = 0; i < 4; i++) {
-        system(commands[i]);
-        vTaskDelay(5000 / portTICK_PERIOD_MS);
+        // Získání mutexu před přístupem k socketu
+        if (xSemaphoreTake(xSocketMutex, portMAX_DELAY)) {
+            if (l_sock_client != FREERTOS_INVALID_SOCKET) {
+                BaseType_t send_result = FreeRTOS_send(l_sock_client, commands[i], strlen(commands[i]), 0);
+                if (send_result < 0) {
+                    PRINTF("Failed to send command '%s', error: %ld\n", commands[i], send_result);
+                } else {
+                    PRINTF("Sent command: %s", commands[i]);
+                }
+            } else {
+                PRINTF("Invalid socket, cannot send command '%s'\n", commands[i]);
+            }
+            // Uvolnění mutexu
+            xSemaphoreGive(xSocketMutex);
+        } else {
+            PRINTF("Failed to take socket mutex.\n");
+        }
+        vTaskDelay(1000 / portTICK_PERIOD_MS);
     }
 }
 
