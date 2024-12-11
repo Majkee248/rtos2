@@ -432,6 +432,27 @@ void task_set_onoff( void *tp_arg ){
     }
 }
 
+void task_led_sequence(void *tp_arg) {
+    Direction_t direction = LEFT;
+    int num_leds = 1;
+
+    while (1) {
+        if (num_leds > LED_PTC_NUM) {
+            num_leds = 1;
+        }
+
+        for (int i = 0; i < num_leds; i++) {
+            ptc_bool[i].state = true;
+        }
+        for (int i = num_leds; i < LED_PTC_NUM; i++) {
+            ptc_bool[i].state = false;
+        }
+
+        num_leds++;
+        vTaskDelay(500 / portTICK_PERIOD_MS);
+    }
+}
+
 void task_monitor_buttons(void *tp_arg) {
     for (int i = 0; i < BUT_NUM; i++) {
         but_bool[i].change = false;
@@ -450,8 +471,17 @@ void task_monitor_buttons(void *tp_arg) {
                 but_bool[i].change = true;
                 but_bool[i].released = !but_bool[i].state;
 
-                // No additional code needed here
-
+                if (i == 0 && but_bool[i].state) {
+                    if (xTaskCreate(
+                            task_led_sequence,
+                            "led_sequence",
+                            configMINIMAL_STACK_SIZE + 100,
+                            NULL,
+                            NORMAL_TASK_PRIORITY,
+                            NULL) != pdPASS) {
+                        PRINTF("Unable to create task 'led_sequence'.\r\n");
+                    }
+                }
             } else {
                 but_bool[i].change = false;
             }
