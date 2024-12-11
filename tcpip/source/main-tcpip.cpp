@@ -1,50 +1,3 @@
-// **************************************************************************
-//
-//               Demo program for OSY labs
-//
-// Subject:      Operating systems
-// Author:       Petr Olivka, petr.olivka@vsb.cz, 12/2023
-// Organization: Department of Computer Science, FEECS,
-//               VSB-Technical University of Ostrava, CZ
-//
-// File:         FreeRTOS TCP/IP Demo with Left/Right LED Control Feature
-//
-// **************************************************************************
-//
-// All mapped LEDs and switches and their PINs and GPIOs:
-// See schema in APPS syllabus.
-//
-// Switches:
-// Name        PIN                GPIO
-// PTC9        SW_PTC9_PIN        SW_PTC9_GPIO
-// PTC10    SW_PTC10_PIN    SW_PTC10_GPIO
-// PTC11    SW_PTC11_PIN    SW_PTC11_GPIO
-// PTC12    SW_PTC12_PIN    SW_PTC12_GPIO
-//
-// LEDs:
-// Name        PIN                GPIO
-// PTA1        LED_PTA1_PIN   LED_PTA1_GPIO
-// PTA2        LED_PTA2_PIN   LED_PTA2_GPIO
-//
-// PTC0        LED_PTC0_PIN   LED_PTC0_GPIO
-// PTC1        LED_PTC1_PIN   LED_PTC1_GPIO
-// PTC2        LED_PTC2_PIN   LED_PTC2_GPIO
-// PTC3        LED_PTC3_PIN   LED_PTC3_GPIO
-// PTC4        LED_PTC4_PIN   LED_PTC4_GPIO
-// PTC5        LED_PTC5_PIN   LED_PTC5_GPIO
-// PTC7        LED_PTC7_PIN   LED_PTC7_GPIO
-// PTC8        LED_PTC8_PIN   LED_PTC8_GPIO
-//
-// PTB2        LED_PTB2_PIN   LED_PTB2_GPIO
-// PTB3        LED_PTB3_PIN   LED_PTB3_GPIO
-// PTB9        LED_PTB9_PIN   LED_PTB9_GPIO
-// PTB10    LED_PTB10_PIN  LED_PTB10_GPIO
-// PTB11    LED_PTB11_PIN  LED_PTB11_GPIO
-// PTB18    LED_PTB18_PIN  LED_PTB18_GPIO
-// PTB19    LED_PTB19_PIN  LED_PTB19_GPIO
-// PTB20    LED_PTB20_PIN  LED_PTB20_GPIO
-// PTB23    LED_PTB23_PIN  LED_PTB23_GPIO
-
 #include "board.h"
 #include "peripherals.h"
 #include "pin_mux.h"
@@ -155,6 +108,7 @@ void task_socket_cli( void *tp_arg );
 void task_set_onoff( void *tp_arg );
 void task_monitor_buttons(void *tp_arg);
 void task_print_buttons(void *tp_arg);
+void msg(); // Declare the msg function prototype
 
 BaseType_t xApplicationGetRandomNumber( uint32_t * tp_pul_number ) { return uxRand(); }
 
