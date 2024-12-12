@@ -307,7 +307,6 @@ void task_socket_srv( void *tp_arg )
     }
 }
 
-
 void task_socket_cli(void *tp_arg) {
     PRINTF("Task socket client started.\r\n");
 
@@ -478,6 +477,8 @@ int main(void) {
     BOARD_InitDebugConsole();
 
     SYSMPU_Enable(SYSMPU, false);
+
+    PRINTF("FreeRTOS+TCP with Left/Right LED
 
     PRINTF("FreeRTOS+TCP with Left/Right LED Control started.\r\n");
 
